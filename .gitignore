@@ -1,0 +1,10 @@
+tools/map_editor/__pycache__/
+obj/
+bin/
+s
+img/*.zts
+img/*.ztp
+img/*.zts.zx0
+*.swp
+*.bak
+.vscode/
