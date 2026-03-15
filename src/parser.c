@@ -5,7 +5,7 @@ static Block* parse_block(Parser* p);
 static Stmt* parse_stmt(Parser* p);
 static Expr* parse_expr(Parser* p);
 static Expr* parse_prefix_expr(Parser* p);
-static LValue expr_to_lvalue(Parser* p, Expr* expr);
+static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv);
 static ExprList* parse_args(Parser* p);
 
 static bool check(Parser* p, TokenType t) {
@@ -313,20 +313,28 @@ static ExprList* parse_args(Parser* p) {
     return args;
 }
 
-static LValue expr_to_lvalue(Parser* p, Expr* expr) {
-    LValue lv;
-    if (!expr) { lv.type = LVAL_VAR; lv.data.var_name = "error"; return lv; }
+static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv) {
+    if (!expr) { 
+        out_lv->type = LVAL_VAR; 
+        out_lv->data.var_name = "error"; 
+        return; 
+    }
     if (expr->type == EXPR_VAR) {
-        lv.type = LVAL_VAR; lv.data.var_name = expr->data.var_name;
+        out_lv->type = LVAL_VAR; 
+        out_lv->data.var_name = expr->data.var_name;
     } else if (expr->type == EXPR_INDEX) {
-        lv.type = LVAL_INDEX; lv.data.index.base = expr->data.index.base; lv.data.index.key = expr->data.index.key;
+        out_lv->type = LVAL_INDEX; 
+        out_lv->data.index.base = expr->data.index.base; 
+        out_lv->data.index.key = expr->data.index.key;
     } else if (expr->type == EXPR_FIELD) {
-        lv.type = LVAL_FIELD; lv.data.field.base = expr->data.field.base; lv.data.field.field = expr->data.field.field;
+        out_lv->type = LVAL_FIELD; 
+        out_lv->data.field.base = expr->data.field.base; 
+        out_lv->data.field.field = expr->data.field.field;
     } else {
         p->has_error = true;
-        lv.type = LVAL_VAR; lv.data.var_name = "error";
+        out_lv->type = LVAL_VAR; 
+        out_lv->data.var_name = "error";
     }
-    return lv;
 }
 
 static Stmt* parse_assignment_or_call(Parser* p) {
@@ -334,12 +342,12 @@ static Stmt* parse_assignment_or_call(Parser* p) {
     
     if (check(p, TOK_EQ) || check(p, TOK_COMMA)) {
         LValueList* lvars = (LValueList*)ast_alloc(sizeof(LValueList));
-        lvars->lval = expr_to_lvalue(p, expr);
+        expr_to_lvalue(p, expr, &lvars->lval);
         lvars->next = 0;
         LValueList* tail = lvars;
         while (match(p, TOK_COMMA)) {
             LValueList* nn = (LValueList*)ast_alloc(sizeof(LValueList));
-            nn->lval = expr_to_lvalue(p, parse_prefix_expr(p));
+            expr_to_lvalue(p, parse_prefix_expr(p), &nn->lval);
             nn->next = 0;
             tail->next = nn;
             tail = nn;

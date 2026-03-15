@@ -1,29 +1,43 @@
-# Zeal Lua Porting Tasks
+# Zeal Lua Port Todo
 
-- [x] Phase 1: Build System & Toolchain Setup
-  - [x] Update `zeallua/Makefile` to build all compiler components (`lexer.c`, `parser.c`, `compiler.c`, `codegen.c`).
-  - [x] Setup `ucsim_z80` integration in the `Makefile` for automated testing.
-  - [x] Create test stubs mapped to memory for simulating Zeal-8bit-OS kernel handlers in `ucsim_z80`.
+## Objectives
+- Port the Lua compiler/VM to Zeal 8-bit OS.
+- Generate direct Z80 machine code binaries.
+- Support a subset of Lua 5.1 (Numbers, Strings, Tables, Functions).
 
-- [x] Phase 2: Kernel Abstraction Integration
-  - [x] Implement VFS wrappers (`open`, `read`, `write`, `close`) using `zos_vfs.h` for file I/O instead of standard libc.
-  - [x] Implement standard output for `print()` using `DEV_STDOUT`.
-  - [x] Add `zos_keyboard.h` and `zos_time.h` bindings if Lua API exposes them.
-  - [x] Update `main.c` to properly use OS arguments and `zos_sys.h` for exit sequences.
+## Progress
 
-- [x] Phase 3: Tokenizer & Parser Validation
-  - [x] Ensure `lexer.c` and `parser.c` successfully tokenize and build the AST using only supported Zeal OS memory allocation (or pre-allocated buffers).
-  - [x] Validate 16-bit integer limitations and string processing performance.
+### Phase 1: Environment & Source Porting [COMPLETED]
+- [x] Set up SDCC build environment.
+- [x] Port lexer and basic parser.
+- [x] Implement memory allocation stubs for Zeal OS.
 
-- [/] Phase 4: Z80 Native Code Generation
-  - [ ] Implement AST/Bytecode translation to Z80 assembly in `codegen.c`.
-  - [ ] Generate the proper Zeal-8bit-OS executable header (loaded at `0x4000`).
-  - [ ] Implement basic arithmetic, loops, and conditional jumps in Z80 assembly generation.
-  - [ ] Implement Lua function calls mapping to Z80 `CALL`.
-  - [ ] Map Lua local variables to Z80 stack and global variables to a generated `.BSS` section.
+### Phase 2: Bytecode & Compiler [COMPLETED]
+- [x] Implement AST to Bytecode translation.
+- [x] Add support for basic statements (Print, Variables, If, While).
+- [x] Add support for local variables and resolve scoping.
 
-- [ ] Phase 5: Testing & Execution pipeline
-  - [ ] Feed `examples/simple.lua` through the `zeallua` compiler.
-  - [ ] Assemble the resulting Z80 `.asm` file.
-  - [ ] Run the executable in `ucsim_z80` and verify the expected print outputs.
-  - [ ] Test the pipeline on actual Zeal-8-bit-OS natively.
+### Phase 3: Z80 Machine Code Encoder [COMPLETED]
+- [x] Implement Z80 instruction encoder (`z80_encoder.c/h`).
+- [x] Support LD, ADD, SUB, JP, CALL, JR, Push/Pop, etc.
+- [x] Implement label and reference resolution system.
+
+### Phase 4: Z80 Code Generator & VM [COMPLETED]
+- [x] Integrate encoder with `codegen.c` to emit `.bin` directly.
+- [x] Implement Stack-based VM in machine code.
+- [x] Implement opcodes: `LOADCONST`, `PRINT`, `ADD`, `SUB`, `MUL`, `JUMP`, `JUMPIFFALSE`.
+- [x] Implement variable access: `GETLOCAL`, `SETLOCAL`, `GETGLOBAL`, `SETGLOBAL`.
+- [x] Implement Value Stack management (Push/Pop).
+
+### Phase 5: Testing & Refinement [IN PROGRESS]
+- [x] Update host tool to generate `.bin` files directly.
+- [/] Verify `test_host.bin` on emulator (Next Step).
+- [ ] Implement Table support (`NEWTABLE`, `GETTABLE`, `SETTABLE`).
+- [ ] Implement Logic operators (`AND`, `OR`, `NOT`).
+- [ ] Implement Function calls and returns.
+- [ ] Test on actual Zeal-8-bit-OS hardware.
+
+## Next Steps
+1. Run and verify the generated binary in a Z80 emulator.
+2. Implement Table support in machine code.
+3. Implement Logic and Comparisons (EQ, NE, LT, LE, GT, GE).

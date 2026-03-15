@@ -1,13 +1,21 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
+#ifdef __SDCC
 #include "zos_sys.h"
 #include "zos_vfs.h"
 #include "zos_video.h"
 #include "zos_time.h"
-#include "zos_time.h"
 #include "zos_keyboard.h"
+#else
+#include "zos_host_stub.h"
+#endif
 #include "lexer.h"
 #include "parser.h"
+#include "compiler.h"
+#include "codegen.h"
+
+static CompiledChunk compiled;
 
 // Zeal OS specific print function
 void z_print(const char* str, uint16_t len) {
@@ -58,14 +66,38 @@ int main(int argc, const char* argv[]) {
     
     Parser p;
     parser_init(&p, &lex);
-    
     ast_reset();
     Chunk* chunk = parser_parse(&p);
     
     if (p.has_error) {
         z_print("Parser error!\n", 14);
+        exit(1);
+    }
+    
+    compiler_init();
+    if (!compiler_compile(chunk, &compiled)) {
+        z_print("Compiler error!\n", 16);
+        exit(1);
+    }
+    
+    // Generate output filename
+    char out_filename[128];
+    if (argc > 2) {
+        strcpy(out_filename, argv[2]);
     } else {
-        z_print("Lua file parsed successfully!\n", 30);
+        int iter = 0;
+        while(argv[1][iter] && iter < 120 && argv[1][iter] != '.') {
+            out_filename[iter] = argv[1][iter];
+            iter++;
+        }
+        out_filename[iter] = '.'; out_filename[iter+1] = 'b'; out_filename[iter+2] = 'i'; out_filename[iter+3] = 'n'; out_filename[iter+4] = '\0';
+    }
+    
+    codegen_init();
+    if(codegen_generate(&compiled, out_filename)) {
+        z_print("Z80 binary generated!\n", 22);
+    } else {
+        z_print("Codegen error!\n", 15);
     }
     
     exit(0);
