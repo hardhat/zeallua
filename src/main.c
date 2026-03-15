@@ -4,8 +4,10 @@
 #include "zos_vfs.h"
 #include "zos_video.h"
 #include "zos_time.h"
+#include "zos_time.h"
 #include "zos_keyboard.h"
 #include "lexer.h"
+#include "parser.h"
 
 // Zeal OS specific print function
 void z_print(const char* str, uint16_t len) {
@@ -54,13 +56,17 @@ int main(int argc, const char* argv[]) {
     Lexer lex;
     lexer_init(&lex, file_buffer, file_len);
     
-    Token tok;
-    do {
-        lexer_next_token(&lex, &tok);
-        const char* type_str = token_type_to_str(tok.type);
-        z_print(type_str, z_strlen(type_str));
-        z_print("\n", 1);
-    } while (tok.type != TOK_EOF && tok.type != TOK_ERROR);
+    Parser p;
+    parser_init(&p, &lex);
+    
+    ast_reset();
+    Chunk* chunk = parser_parse(&p);
+    
+    if (p.has_error) {
+        z_print("Parser error!\n", 14);
+    } else {
+        z_print("Lua file parsed successfully!\n", 30);
+    }
     
     exit(0);
     return 0;

@@ -11,11 +11,11 @@
   - [x] Add `zos_keyboard.h` and `zos_time.h` bindings if Lua API exposes them.
   - [x] Update `main.c` to properly use OS arguments and `zos_sys.h` for exit sequences.
 
-- [/] Phase 3: Tokenizer & Parser Validation
+- [x] Phase 3: Tokenizer & Parser Validation
   - [x] Ensure `lexer.c` and `parser.c` successfully tokenize and build the AST using only supported Zeal OS memory allocation (or pre-allocated buffers).
-  - [ ] Validate 16-bit integer limitations and string processing performance.
+  - [x] Validate 16-bit integer limitations and string processing performance.
 
-- [ ] Phase 4: Z80 Native Code Generation
+- [/] Phase 4: Z80 Native Code Generation
   - [ ] Implement AST/Bytecode translation to Z80 assembly in `codegen.c`.
   - [ ] Generate the proper Zeal-8bit-OS executable header (loaded at `0x4000`).
   - [ ] Implement basic arithmetic, loops, and conditional jumps in Z80 assembly generation.
