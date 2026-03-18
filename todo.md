@@ -34,12 +34,30 @@
 - [x] Verify `test_host.bin` on emulator.
 - [x] Implement Logic and Comparisons (EQ, NE, LT, LE, GT, GE).
 - [x] Implement Symbol Table emission (`.sym` files).
-- [ ] Implement Table support (`NEWTABLE`, `GETTABLE`, `SETTABLE`).
-- [ ] Implement Logic operators (`AND`, `OR`, `NOT`).
+- [x] Implement Table support (`NEWTABLE`, `GETTABLE`, `SETTABLE`) for numeric and string keys.
+- [x] Implement `not` and truthiness handling in machine code.
+- [x] Add semantic ucsim regression coverage for arithmetic, comparisons, branches, locals, loops, tables, string-key access, and minimal `for ... in`.
+- [ ] Implement short-circuit logic operators (`AND`, `OR`).
 - [ ] Implement Function calls and returns.
 - [ ] Test on actual Zeal-8-bit-OS hardware.
 
+### Phase 6: Coverage Gaps & Remaining Runtime Work [PLANNED]
+
+#### Missing Test Coverage
+- [ ] Add regression for multiple assignment (`a, b = 1, 2`).
+- [ ] Add regression for mixed table literals containing both array and named fields in the same literal.
+- [ ] Add regression proving string keys compare by content across distinct string literals, not only reused constants.
+- [ ] Add output-oriented regression coverage for `print(...)` semantics if stdout validation is still desired.
+
+#### Missing Implementation
+- [ ] Implement exponentiation (`^`) in the VM/runtime.
+- [ ] Implement string concatenation (`..`) in the VM/runtime.
+- [ ] Implement length operator (`#`) in the VM/runtime.
+- [ ] Implement built-ins `type`, `tostring`, and `tonumber`.
+- [ ] Implement function definitions, closures, calls, and returns in the VM/runtime.
+- [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
+
 ## Next Steps
-1. Implement Table support in machine code (`NEWTABLE`, `GETTABLE`, `SETTABLE`).
-2. Implement Logic operators (`AND`, `OR`, `NOT`).
-3. Implement Function calls and returns.
+1. Implement short-circuit logic operators (`AND`, `OR`).
+2. Implement function definitions, calls, and returns.
+3. Close the highest-value regression gaps in Phase 6.
