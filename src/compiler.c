@@ -3,6 +3,14 @@
 
 static BytecodeFunction* current_func;
 static CompiledChunk* current_chunk;
+static const char function_slot_name[] = "__func";
+
+static void init_bytecode_function(BytecodeFunction* func, const char* name) {
+    func->name = name;
+    func->code_len = 0;
+    func->const_count = 0;
+    func->local_count = 0;
+}
 
 static void emit_byte(uint8_t b) {
     if (current_func->code_len < MAX_CODE_SIZE) {
@@ -25,6 +33,7 @@ static uint8_t add_constant(Constant* c) {
         if (current_func->constants[i].type == c->type) {
             if (c->type == CONST_NUMBER && current_func->constants[i].data.number == c->data.number) return (uint8_t)i;
             if (c->type == CONST_STRING && strcmp(current_func->constants[i].data.string, c->data.string) == 0) return (uint8_t)i;
+            if (c->type == CONST_FUNCTION && current_func->constants[i].data.func_idx == c->data.func_idx) return (uint8_t)i;
         }
     }
     uint8_t idx = (uint8_t)current_func->const_count;
@@ -48,8 +57,46 @@ static int resolve_local(const char* name) {
     return -1;
 }
 
+static void compile_block(Block* block);
 static void compile_expr(Expr* expr);
 static void compile_stmt(Stmt* stmt);
+
+static uint16_t compile_function_body(const char* name, const char* self_name, IdentList* params, Block* body) {
+    uint16_t func_idx = current_chunk->func_count;
+    BytecodeFunction* saved_func = current_func;
+    BytecodeFunction* func;
+
+    current_chunk->func_count++;
+    func = &current_chunk->functions[func_idx];
+    init_bytecode_function(func, name ? name : "<function>");
+    current_func = func;
+
+    current_func->locals[current_func->local_count++] = self_name ? ast_strdup(self_name) : function_slot_name;
+
+    while (params) {
+        current_func->locals[current_func->local_count++] = ast_strdup(params->ident);
+        params = params->next;
+    }
+
+    compile_block(body);
+    emit_op(OP_LOADNIL);
+    emit_op(OP_RETURN);
+    emit_byte(0);
+
+    current_func = saved_func;
+    return func_idx;
+}
+
+static void emit_function_constant(uint16_t func_idx) {
+    Constant c;
+    uint8_t idx;
+
+    c.type = CONST_FUNCTION;
+    c.data.func_idx = func_idx;
+    idx = add_constant(&c);
+    emit_op(OP_LOADCONST);
+    emit_byte(idx);
+}
 
 static void emit_number_constant(int16_t value) {
     Constant c;
@@ -107,6 +154,10 @@ static void compile_expr(Expr* expr) {
             uint8_t idx = add_constant(&c);
             emit_op(OP_LOADCONST);
             emit_byte(idx);
+        } break;
+        case EXPR_FUNCTION: {
+            uint16_t func_idx = compile_function_body("<anon>", 0, expr->data.function.params, expr->data.function.body);
+            emit_function_constant(func_idx);
         } break;
         case EXPR_VAR: {
             int local_idx = resolve_local(expr->data.var_name);
@@ -481,6 +532,28 @@ static void compile_stmt(Stmt* stmt) {
             emit_op(OP_RETURN);
             emit_byte(el ? 1 : 0);
         } break;
+        case STMT_FUNC_DEF: {
+            int local_idx;
+            uint8_t global_idx;
+            uint16_t func_idx = compile_function_body(stmt->data.func_def.name.base, stmt->data.func_def.name.base, stmt->data.func_def.params, stmt->data.func_def.body);
+
+            emit_function_constant(func_idx);
+            local_idx = resolve_local(stmt->data.func_def.name.base);
+            if (local_idx != -1) {
+                emit_op(OP_SETLOCAL);
+                emit_byte((uint8_t)local_idx);
+            } else {
+                global_idx = add_global(stmt->data.func_def.name.base);
+                emit_op(OP_SETGLOBAL);
+                emit_byte(global_idx);
+            }
+        } break;
+        case STMT_LOCAL_FUNC: {
+            uint16_t func_idx = compile_function_body(stmt->data.local_func.name, stmt->data.local_func.name, stmt->data.local_func.params, stmt->data.local_func.body);
+
+            emit_function_constant(func_idx);
+            current_func->locals[current_func->local_count++] = ast_strdup(stmt->data.local_func.name);
+        } break;
         case STMT_LOCAL: {
             IdentList* name = stmt->data.local.names;
             ExprList* val = stmt->data.local.exprs;
@@ -510,10 +583,7 @@ bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     current_chunk->global_count = 0;
     
     current_func = &current_chunk->main;
-    current_func->name = "main";
-    current_func->code_len = 0;
-    current_func->const_count = 0;
-    current_func->local_count = 0;
+    init_bytecode_function(current_func, "main");
     
     if (!ast_chunk || !ast_chunk->block) return false;
     

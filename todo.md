@@ -38,7 +38,7 @@
 - [x] Implement `not` and truthiness handling in machine code.
 - [x] Add semantic ucsim regression coverage for arithmetic, comparisons, branches, locals, loops, tables, string-key access, and minimal `for ... in`.
 - [x] Implement short-circuit logic operators (`AND`, `OR`).
-- [ ] Implement Function calls and returns.
+- [x] Implement basic function definitions, calls, and returns (without closures).
 - [ ] Test on actual Zeal-8-bit-OS hardware.
 
 ### Phase 6: Coverage Gaps & Remaining Runtime Work [PLANNED]
@@ -54,10 +54,10 @@
 - [ ] Implement string concatenation (`..`) in the VM/runtime.
 - [ ] Implement length operator (`#`) in the VM/runtime.
 - [ ] Implement built-ins `type`, `tostring`, and `tonumber`.
-- [ ] Implement function definitions, closures, calls, and returns in the VM/runtime.
+- [ ] Implement closures and upvalue capture for nested functions.
 - [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
 
 ## Next Steps
-1. Implement function definitions, calls, and returns.
-2. Close the highest-value regression gaps in Phase 6.
+1. Close the highest-value regression gaps in Phase 6.
+2. Implement closures and upvalue capture for nested functions.
 3. Test on actual Zeal-8-bit-OS hardware.

@@ -5,6 +5,9 @@ static Block* parse_block(Parser* p);
 static Stmt* parse_stmt(Parser* p);
 static Expr* parse_expr(Parser* p);
 static Expr* parse_prefix_expr(Parser* p);
+static Expr* parse_function_expr(Parser* p);
+static IdentList* parse_param_list(Parser* p);
+static Stmt* parse_function_stmt(Parser* p);
 static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv);
 static ExprList* parse_args(Parser* p);
 
@@ -229,9 +232,43 @@ static Expr* parse_table(Parser* p) {
     return t;
 }
 
+static IdentList* parse_param_list(Parser* p) {
+    IdentList* params = 0;
+
+    if (check(p, TOK_IDENT)) {
+        params = identlist_append(params, p->curr.value.ident);
+        advance(p);
+        while (match(p, TOK_COMMA)) {
+            if (check(p, TOK_IDENT)) {
+                params = identlist_append(params, p->curr.value.ident);
+                advance(p);
+            } else {
+                p->has_error = true;
+                break;
+            }
+        }
+    }
+
+    return params;
+}
+
+static Expr* parse_function_expr(Parser* p) {
+    Expr* expr = new_expr(EXPR_FUNCTION);
+
+    expect(p, TOK_FUNCTION);
+    expect(p, TOK_LPAREN);
+    expr->data.function.params = parse_param_list(p);
+    expect(p, TOK_RPAREN);
+    expr->data.function.body = parse_block(p);
+    expect(p, TOK_END);
+    return expr;
+}
+
 static Expr* parse_prefix_expr(Parser* p) {
     Expr* expr = 0;
-    if (match(p, TOK_LPAREN)) {
+    if (check(p, TOK_FUNCTION)) {
+        expr = parse_function_expr(p);
+    } else if (match(p, TOK_LPAREN)) {
         expr = parse_expr(p);
         expect(p, TOK_RPAREN);
     } else if (check(p, TOK_IDENT)) {
@@ -380,13 +417,7 @@ static Stmt* parse_local(Parser* p) {
         s = new_stmt(STMT_LOCAL_FUNC);
         if (check(p, TOK_IDENT)) { s->data.local_func.name = ast_strdup(p->curr.value.ident); advance(p); }
         expect(p, TOK_LPAREN);
-        IdentList* params = 0;
-        if (check(p, TOK_IDENT)) {
-            params = identlist_append(params, p->curr.value.ident); advance(p);
-            while (match(p, TOK_COMMA)) {
-                if (check(p, TOK_IDENT)) { params = identlist_append(params, p->curr.value.ident); advance(p); }
-            }
-        }
+        IdentList* params = parse_param_list(p);
         expect(p, TOK_RPAREN);
         s->data.local_func.params = params;
         s->data.local_func.body = parse_block(p);
@@ -406,6 +437,29 @@ static Stmt* parse_local(Parser* p) {
         }
         s->data.local.exprs = exprs;
     }
+    return s;
+}
+
+static Stmt* parse_function_stmt(Parser* p) {
+    Stmt* s = new_stmt(STMT_FUNC_DEF);
+
+    expect(p, TOK_FUNCTION);
+    s->data.func_def.name.base = 0;
+    s->data.func_def.name.fields = 0;
+    s->data.func_def.name.method = 0;
+
+    if (check(p, TOK_IDENT)) {
+        s->data.func_def.name.base = ast_strdup(p->curr.value.ident);
+        advance(p);
+    } else {
+        p->has_error = true;
+    }
+
+    expect(p, TOK_LPAREN);
+    s->data.func_def.params = parse_param_list(p);
+    expect(p, TOK_RPAREN);
+    s->data.func_def.body = parse_block(p);
+    expect(p, TOK_END);
     return s;
 }
 
@@ -494,6 +548,7 @@ static Stmt* parse_for(Parser* p) {
 }
 
 static Stmt* parse_stmt(Parser* p) {
+    if (check(p, TOK_FUNCTION)) return parse_function_stmt(p);
     if (check(p, TOK_IF)) return parse_if(p);
     if (check(p, TOK_WHILE)) return parse_while(p);
     if (check(p, TOK_REPEAT)) return parse_repeat(p);

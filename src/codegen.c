@@ -14,10 +14,13 @@
 #define TYPE_NUMBER 2
 #define TYPE_STRING 3
 #define TYPE_TABLE 4
+#define TYPE_FUNCTION 5
 #define TABLE_CAPACITY 8
 #define TABLE_ENTRY_SIZE 6
 #define TABLE_SIZE (4 + (TABLE_CAPACITY * TABLE_ENTRY_SIZE))
 #define TABLE_HEAP_BYTES (TABLE_SIZE * 8)
+#define CALL_STACK_BYTES 96
+#define VSTACK_BYTES 512
 
 static uint8_t image[MAX_IMAGE_SIZE];
 static Z80Encoder enc;
@@ -60,6 +63,81 @@ static void append_hex16(char* dst, uint16_t* len, uint16_t cap, uint16_t value)
     append_char(dst, len, cap, hex[(value >> 8) & 0x0F]);
     append_char(dst, len, cap, hex[(value >> 4) & 0x0F]);
     append_char(dst, len, cap, hex[value & 0x0F]);
+}
+
+static void append_uint16(char* dst, uint16_t* len, uint16_t cap, uint16_t value) {
+    char digits[5];
+    uint16_t count = 0;
+
+    if (value == 0) {
+        append_char(dst, len, cap, '0');
+        return;
+    }
+
+    while (value > 0 && count < sizeof(digits)) {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+
+    while (count > 0) {
+        count--;
+        append_char(dst, len, cap, digits[count]);
+    }
+}
+
+static void make_indexed_label(char* dst, uint16_t cap, const char* prefix, uint16_t index) {
+    uint16_t len = 0;
+    dst[0] = '\0';
+    append_str(dst, &len, cap, prefix);
+    append_uint16(dst, &len, cap, index);
+}
+
+static void make_two_index_label(char* dst, uint16_t cap, const char* prefix, uint16_t first, uint16_t second) {
+    uint16_t len = 0;
+    dst[0] = '\0';
+    append_str(dst, &len, cap, prefix);
+    append_uint16(dst, &len, cap, first);
+    append_char(dst, &len, cap, '_');
+    append_uint16(dst, &len, cap, second);
+}
+
+static void emit_function_constant_pool(const char* pool_label, const char* string_prefix, BytecodeFunction* func) {
+    char label[32];
+    uint16_t i;
+
+    z80_add_label(&enc, pool_label);
+    for (i = 0; i < func->const_count; i++) {
+        Constant* c = &func->constants[i];
+        if (c->type == CONST_NUMBER) {
+            z80_emit_b(&enc, TYPE_NUMBER);
+            z80_emit_w(&enc, (uint16_t)c->data.number);
+        } else if (c->type == CONST_STRING) {
+            z80_emit_b(&enc, TYPE_STRING);
+            make_indexed_label(label, sizeof(label), string_prefix, i);
+            z80_add_ref(&enc, label, false, true);
+        } else if (c->type == CONST_FUNCTION) {
+            z80_emit_b(&enc, TYPE_FUNCTION);
+            make_indexed_label(label, sizeof(label), "func_record_", c->data.func_idx);
+            z80_add_ref(&enc, label, false, true);
+        } else {
+            z80_emit_b(&enc, TYPE_NIL);
+            z80_emit_w(&enc, 0);
+        }
+    }
+
+    for (i = 0; i < func->const_count; i++) {
+        Constant* c = &func->constants[i];
+        if (c->type == CONST_STRING) {
+            const char* text = c->data.string;
+            make_indexed_label(label, sizeof(label), string_prefix, i);
+            z80_add_label(&enc, label);
+            while (*text) {
+                z80_emit_b(&enc, (uint8_t)*text);
+                text++;
+            }
+            z80_emit_b(&enc, 0);
+        }
+    }
 }
 
 void codegen_init(void) {
@@ -114,6 +192,7 @@ static bool export_symbols(Z80Encoder* e, const char* bin_filename) {
 
 static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     uint16_t i;
+    char label[32];
 
     z80_add_label(&enc, "_start");
     z80_ld_rp_label(&enc, RP_HL, "heap_space");
@@ -121,6 +200,10 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_ld_rp_label(&enc, RP_HL, "vstack_end");
     z80_ld_mem_hl_label(&enc, "vsp_ptr");
     z80_ld_mem_hl_label(&enc, "fp_ptr");
+    z80_ld_rp_label(&enc, RP_HL, "const_pool_main");
+    z80_ld_mem_hl_label(&enc, "cp_ptr");
+    z80_ld_rp_label(&enc, RP_HL, "callstack_end");
+    z80_ld_mem_hl_label(&enc, "csp_ptr");
     z80_ld_rp_label(&enc, RP_HL, "bytecode_main");
     z80_ld_mem_hl_label(&enc, "pc_ptr");
     z80_jr_label(&enc, "vm_loop");
@@ -128,10 +211,19 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_add_label(&enc, "pc_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "vsp_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "fp_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "cp_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "csp_ptr"); z80_emit_w(&enc, 0);
 
     z80_add_label(&enc, "bytecode_main");
     for (i = 0; i < chunk->main.code_len; i++) {
         z80_emit_b(&enc, chunk->main.code[i]);
+    }
+    for (i = 0; i < chunk->func_count; i++) {
+        make_indexed_label(label, sizeof(label), "bytecode_func_", i);
+        z80_add_label(&enc, label);
+        for (uint16_t j = 0; j < chunk->functions[i].code_len; j++) {
+            z80_emit_b(&enc, chunk->functions[i].code[j]);
+        }
     }
 
     z80_add_label(&enc, "vm_loop");
@@ -171,6 +263,8 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0x60); z80_jp_cc_label(&enc, CC_Z, "op_not");
     z80_cp_a_n(&enc, 0x80); z80_jp_cc_label(&enc, CC_Z, "op_jump");
     z80_cp_a_n(&enc, 0x81); z80_jp_cc_label(&enc, CC_Z, "op_jump_false");
+    z80_cp_a_n(&enc, 0x90); z80_jp_cc_label(&enc, CC_Z, "op_call");
+    z80_cp_a_n(&enc, 0x91); z80_jp_cc_label(&enc, CC_Z, "op_return");
     z80_cp_a_n(&enc, 0xA0); z80_jp_cc_label(&enc, CC_Z, "op_print");
     z80_jp_label(&enc, "vm_loop");
 }
@@ -212,7 +306,7 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_add_label(&enc, "op_loadconst");
     z80_ld_hl_mem_label(&enc, "pc_ptr"); z80_ld_a_hl(&enc); z80_inc_rp(&enc, RP_HL); z80_ld_mem_hl_label(&enc, "pc_ptr");
     z80_ld_r_r(&enc, REG_L, REG_A); z80_ld_r_n(&enc, REG_H, 0); z80_ld_r_r(&enc, REG_E, REG_L); z80_ld_r_r(&enc, REG_D, REG_H); z80_add_hl_rp(&enc, RP_HL); z80_add_hl_rp(&enc, RP_DE);
-    z80_ld_rp_label(&enc, RP_DE, "const_pool"); z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_de_mem_label(&enc, "cp_ptr"); z80_add_hl_rp(&enc, RP_DE);
     z80_ld_a_hl(&enc); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_E, REG_M); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_D, REG_M); z80_ex_de_hl(&enc);
     z80_call_label(&enc, "vstack_push"); z80_jp_label(&enc, "vm_loop");
 
@@ -257,6 +351,61 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_add_label(&enc, "op_print_next");
     z80_ld_rp_label(&enc, RP_HL, "str_newline"); z80_call_label(&enc, "print_str");
     z80_pop(&enc, RP_BC); z80_djnz_label(&enc, "op_print_loop");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_call");
+    z80_ld_hl_mem_label(&enc, "pc_ptr"); z80_ld_a_hl(&enc); z80_inc_rp(&enc, RP_HL); z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_ld_r_r(&enc, REG_B, REG_A);
+    z80_ld_hl_mem_label(&enc, "pc_ptr"); z80_call_label(&enc, "cstack_push_hl");
+    z80_ld_hl_mem_label(&enc, "fp_ptr"); z80_call_label(&enc, "cstack_push_hl");
+    z80_ld_hl_mem_label(&enc, "cp_ptr"); z80_call_label(&enc, "cstack_push_hl");
+    z80_ld_hl_mem_label(&enc, "vsp_ptr");
+    z80_add_label(&enc, "call_frame_seek");
+    z80_ld_r_r(&enc, REG_A, REG_B); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "call_frame_found");
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    z80_djnz_label(&enc, "call_frame_seek");
+    z80_add_label(&enc, "call_frame_found");
+    z80_ld_mem_hl_label(&enc, "call_frame_temp");
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "fp_ptr");
+    z80_ld_hl_mem_label(&enc, "call_frame_temp");
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "call_func_temp");
+    z80_ld_hl_mem_label(&enc, "call_func_temp");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_ld_hl_mem_label(&enc, "call_func_temp");
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "cp_ptr");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_return");
+    z80_ld_hl_mem_label(&enc, "pc_ptr"); z80_inc_rp(&enc, RP_HL); z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_call_label(&enc, "vstack_pop");
+    z80_ld_mem_hl_label(&enc, "return_temp");
+    z80_ld_rp_label(&enc, RP_HL, "return_type");
+    z80_ld_hl_a(&enc);
+    z80_ld_hl_mem_label(&enc, "fp_ptr");
+    z80_ld_mem_hl_label(&enc, "vsp_ptr");
+    z80_call_label(&enc, "cstack_pop_hl"); z80_ld_mem_hl_label(&enc, "cp_ptr");
+    z80_call_label(&enc, "cstack_pop_hl"); z80_ld_mem_hl_label(&enc, "fp_ptr");
+    z80_call_label(&enc, "cstack_pop_hl"); z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_ld_hl_mem_label(&enc, "return_temp");
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_HL, "return_type");
+    z80_ld_a_hl(&enc);
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "vstack_push");
     z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "print_num");
@@ -761,44 +910,59 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "strcmp_hl_de_done");
     z80_ret(&enc);
 
-    z80_add_label(&enc, "const_pool");
-    for (i = 0; i < chunk->main.const_count; i++) {
-        Constant* c = &chunk->main.constants[i];
-        if (c->type == CONST_NUMBER) {
-            z80_emit_b(&enc, 2);
-            z80_emit_w(&enc, (uint16_t)c->data.number);
-        } else if (c->type == CONST_STRING) {
-            uint16_t string_offset = 0;
-            uint16_t string_base = enc.base_addr + enc.size + (chunk->main.const_count * 3);
-            for (uint16_t j = 0; j < i; j++) {
-                Constant* prev = &chunk->main.constants[j];
-                if (prev->type == CONST_STRING) {
-                    const char* text = prev->data.string;
-                    while (*text++) string_offset++;
-                    string_offset++;
-                }
-            }
-            z80_emit_b(&enc, TYPE_STRING);
-            z80_emit_w(&enc, (uint16_t)(string_base + string_offset));
-        } else {
-            z80_emit_b(&enc, 0); z80_emit_w(&enc, 0);
-        }
+    z80_add_label(&enc, "cstack_push_hl");
+    z80_push(&enc, RP_DE);
+    z80_ex_de_hl(&enc);
+    z80_ld_hl_mem_label(&enc, "csp_ptr");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_E);
+    z80_ld_mem_hl_label(&enc, "csp_ptr");
+    z80_pop(&enc, RP_DE);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "cstack_pop_hl");
+    z80_ld_hl_mem_label(&enc, "csp_ptr");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "csp_ptr");
+    z80_ex_de_hl(&enc);
+    z80_ret(&enc);
+
+    emit_function_constant_pool("const_pool_main", "const_str_main_", &chunk->main);
+    for (i = 0; i < chunk->func_count; i++) {
+        char pool_label[32];
+        char string_prefix[32];
+
+        make_indexed_label(pool_label, sizeof(pool_label), "const_pool_func_", i);
+        make_two_index_label(string_prefix, sizeof(string_prefix), "const_str_func_", i, 0);
+        string_prefix[strlen(string_prefix) - 1] = '\0';
+        emit_function_constant_pool(pool_label, string_prefix, &chunk->functions[i]);
     }
-    for (i = 0; i < chunk->main.const_count; i++) {
-        Constant* c = &chunk->main.constants[i];
-        if (c->type == CONST_STRING) {
-            const char* text = c->data.string;
-            while (*text) {
-                z80_emit_b(&enc, (uint8_t)*text);
-                text++;
-            }
-            z80_emit_b(&enc, 0);
-        }
+
+    for (i = 0; i < chunk->func_count; i++) {
+        char label[32];
+        char code_label[32];
+        char pool_label[32];
+
+        make_indexed_label(label, sizeof(label), "func_record_", i);
+        make_indexed_label(code_label, sizeof(code_label), "bytecode_func_", i);
+        make_indexed_label(pool_label, sizeof(pool_label), "const_pool_func_", i);
+        z80_add_label(&enc, label);
+        z80_add_ref(&enc, code_label, false, true);
+        z80_add_ref(&enc, pool_label, false, true);
     }
 
     z80_add_label(&enc, "global_vars");
     for(int i=0; i<768; i++) z80_emit_b(&enc, 0);
 
+    z80_add_label(&enc, "call_frame_temp"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "call_func_temp"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "return_temp"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "return_type"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "heap_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_type"); z80_emit_b(&enc, 0);
@@ -806,6 +970,9 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "table_val_type"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "table_entry_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "heap_space"); for(int i=0; i<TABLE_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "callstack_space"); for(int i=0; i<CALL_STACK_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "callstack_end");
+    z80_add_label(&enc, "vstack_space"); for(int i=0; i<VSTACK_BYTES; i++) z80_emit_b(&enc, 0);
 
     z80_add_label(&enc, "vstack_end");
 
