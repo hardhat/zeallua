@@ -282,6 +282,24 @@ static void compile_expr(Expr* expr) {
                 emit_op(OP_LOADNIL); // print returns nil
                 return;
             }
+            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "type") == 0) {
+                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
+                else emit_op(OP_LOADNIL);
+                emit_op(OP_TYPE);
+                return;
+            }
+            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "tostring") == 0) {
+                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
+                else emit_op(OP_LOADNIL);
+                emit_op(OP_TOSTRING);
+                return;
+            }
+            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "tonumber") == 0) {
+                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
+                else emit_op(OP_LOADNIL);
+                emit_op(OP_TONUMBER);
+                return;
+            }
             compile_expr(expr->data.call.func);
             uint8_t arg_count = 0;
             ExprList* arg = expr->data.call.args;
