@@ -8,3 +8,5 @@ img/*.zts.zx0
 *.swp
 *.bak
 .vscode/
+test/out/
+/zeallua_host

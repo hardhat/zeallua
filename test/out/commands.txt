@@ -1,3 +1,0 @@
-step 5000
-dump /h rom 0x42F2 0x42F8
-quit
