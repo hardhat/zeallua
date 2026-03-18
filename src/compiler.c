@@ -379,6 +379,59 @@ static void compile_stmt(Stmt* stmt) {
             emit_op(OP_POP);
             current_func->local_count = base_local;
         } break;
+        case STMT_FOR_IN: {
+            static const char for_table_name[] = "__for_table";
+            static const char for_index_name[] = "__for_index";
+            IdentList* loop_var = stmt->data.for_in.vars;
+            ExprList* iterable = stmt->data.for_in.exprs;
+            uint16_t base_local = current_func->local_count;
+            uint16_t loop_start;
+            uint16_t exit_jump;
+            uint8_t table_idx;
+            uint8_t index_idx;
+            uint8_t value_idx;
+
+            if (!loop_var || !iterable) {
+                break;
+            }
+
+            compile_expr(iterable->expr);
+            current_func->locals[current_func->local_count++] = for_table_name;
+            emit_number_constant(1);
+            current_func->locals[current_func->local_count++] = for_index_name;
+            emit_op(OP_LOADNIL);
+            current_func->locals[current_func->local_count++] = ast_strdup(loop_var->ident);
+
+            table_idx = (uint8_t)base_local;
+            index_idx = (uint8_t)(base_local + 1);
+            value_idx = (uint8_t)(base_local + 2);
+
+            loop_start = current_func->code_len;
+            emit_op(OP_GETLOCAL); emit_byte(table_idx);
+            emit_op(OP_GETLOCAL); emit_byte(index_idx);
+            emit_op(OP_GETTABLE);
+            emit_op(OP_DUP);
+            emit_op(OP_JUMPIFFALSE);
+            exit_jump = current_func->code_len;
+            emit_i16(0);
+            emit_op(OP_SETLOCAL); emit_byte(value_idx);
+
+            compile_block(stmt->data.for_in.block);
+
+            emit_op(OP_GETLOCAL); emit_byte(index_idx);
+            emit_number_constant(1);
+            emit_op(OP_ADD);
+            emit_op(OP_SETLOCAL); emit_byte(index_idx);
+            emit_op(OP_JUMP);
+            emit_i16((int16_t)(loop_start - current_func->code_len - 2));
+
+            patch_relative_jump(exit_jump, current_func->code_len);
+
+            emit_op(OP_POP);
+            emit_op(OP_POP);
+            emit_op(OP_POP);
+            current_func->local_count = base_local;
+        } break;
         case STMT_RETURN: {
             ExprList* el = stmt->data.return_exprs;
             if (el) compile_expr(el->expr);

@@ -472,6 +472,23 @@ static Stmt* parse_for(Parser* p) {
         return s;
     }
 
+    if (check(p, TOK_IDENT)) {
+        Stmt* s = new_stmt(STMT_FOR_IN);
+        IdentList* vars = 0;
+        ExprList* exprs = 0;
+
+        vars = identlist_append(vars, p->curr.value.ident);
+        advance(p);
+        expect(p, TOK_IN);
+        exprs = exprlist_append(exprs, parse_expr(p));
+        expect(p, TOK_DO);
+        s->data.for_in.vars = vars;
+        s->data.for_in.exprs = exprs;
+        s->data.for_in.block = parse_block(p);
+        expect(p, TOK_END);
+        return s;
+    }
+
     p->has_error = true;
     return new_stmt(STMT_DO);
 }
@@ -481,7 +498,7 @@ static Stmt* parse_stmt(Parser* p) {
     if (check(p, TOK_WHILE)) return parse_while(p);
     if (check(p, TOK_REPEAT)) return parse_repeat(p);
     if (check(p, TOK_FOR)) return parse_for(p);
-    // TODO: function, break support in loops, generic for-in
+    // TODO: function, break support in loops
     if (check(p, TOK_LOCAL)) return parse_local(p);
     if (match(p, TOK_BREAK)) return new_stmt(STMT_BREAK);
     if (match(p, TOK_DO)) {
