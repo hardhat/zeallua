@@ -247,6 +247,7 @@ static void compile_expr(Expr* expr) {
                 case BINOP_MUL: emit_op(OP_MUL); break;
                 case BINOP_DIV: emit_op(OP_DIV); break;
                 case BINOP_MOD: emit_op(OP_MOD); break;
+                case BINOP_POW: emit_op(OP_POW); break;
                 case BINOP_EQ:  emit_op(OP_EQ); break;
                 case BINOP_NE:  emit_op(OP_NE); break;
                 case BINOP_LT:  emit_op(OP_LT); break;

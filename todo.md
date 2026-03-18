@@ -50,7 +50,7 @@
 - [ ] Add output-oriented regression coverage for `print(...)` semantics if stdout validation is still desired.
 
 #### Missing Implementation
-- [ ] Implement exponentiation (`^`) in the VM/runtime.
+- [x] Implement exponentiation (`^`) in the VM/runtime.
 - [ ] Implement string concatenation (`..`) in the VM/runtime.
 - [x] Implement length operator (`#`) in the VM/runtime.
 - [x] Implement built-ins `type`, `tostring`, and `tonumber`.
@@ -59,5 +59,6 @@
 
 ## Next Steps
 1. Decide whether stdout-oriented `print(...)` regression coverage is still needed, and add it if so.
-2. Implement closures and upvalue capture for nested functions.
-3. Test on actual Zeal-8-bit-OS hardware.
+2. Implement string concatenation (`..`).
+3. Implement closures and upvalue capture for nested functions.
+4. Test on actual Zeal-8-bit-OS hardware.

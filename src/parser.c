@@ -5,6 +5,8 @@ static Block* parse_block(Parser* p);
 static Stmt* parse_stmt(Parser* p);
 static Expr* parse_expr(Parser* p);
 static Expr* parse_prefix_expr(Parser* p);
+static Expr* parse_unary_expr(Parser* p);
+static Expr* parse_pow_expr(Parser* p);
 static Expr* parse_function_expr(Parser* p);
 static IdentList* parse_param_list(Parser* p);
 static Stmt* parse_function_stmt(Parser* p);
@@ -105,6 +107,21 @@ static Expr* parse_primary_expr(Parser* p) {
     return parse_prefix_expr(p);
 }
 
+static Expr* parse_pow_expr(Parser* p) {
+    Expr* left = parse_primary_expr(p);
+
+    if (match(p, TOK_CARET)) {
+        Expr* right = parse_unary_expr(p);
+        Expr* bin = new_expr(EXPR_BINOP);
+        bin->data.binop.left = left;
+        bin->data.binop.op = BINOP_POW;
+        bin->data.binop.right = right;
+        return bin;
+    }
+
+    return left;
+}
+
 static Expr* parse_unary_expr(Parser* p) {
     if (match(p, TOK_NOT)) {
         Expr* e = new_expr(EXPR_UNOP); e->data.unop.op = UNOP_NOT; e->data.unop.expr = parse_unary_expr(p); return e;
@@ -113,7 +130,7 @@ static Expr* parse_unary_expr(Parser* p) {
     } else if (match(p, TOK_HASH)) {
         Expr* e = new_expr(EXPR_UNOP); e->data.unop.op = UNOP_LEN; e->data.unop.expr = parse_unary_expr(p); return e;
     }
-    return parse_primary_expr(p);
+    return parse_pow_expr(p);
 }
 
 static Expr* parse_mul_expr(Parser* p) {
