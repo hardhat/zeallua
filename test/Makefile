@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 all: suite
 
@@ -59,6 +59,10 @@ suite:
 	$(MAKE) check TEST=elseif_chain_fallback
 	$(MAKE) check TEST=nested_if
 	$(MAKE) check TEST=nested_if_false
+	$(MAKE) check TEST=while_count
+	$(MAKE) check TEST=while_zero
+	$(MAKE) check TEST=while_accumulate
+	$(MAKE) check TEST=while_local_shadow
 	$(MAKE) check TEST=local_mixed_eq
 	$(MAKE) check TEST=local_mixed_eq_false
 	$(MAKE) check TEST=local_update
@@ -263,6 +267,30 @@ check-nested-if-false:
 
 run-nested-if-false:
 	$(MAKE) run TEST=nested_if_false
+
+check-while-count:
+	$(MAKE) check TEST=while_count
+
+run-while-count:
+	$(MAKE) run TEST=while_count
+
+check-while-zero:
+	$(MAKE) check TEST=while_zero
+
+run-while-zero:
+	$(MAKE) run TEST=while_zero
+
+check-while-accumulate:
+	$(MAKE) check TEST=while_accumulate
+
+run-while-accumulate:
+	$(MAKE) run TEST=while_accumulate
+
+check-while-local-shadow:
+	$(MAKE) check TEST=while_local_shadow
+
+run-while-local-shadow:
+	$(MAKE) run TEST=while_local_shadow
 
 check-local-mixed-eq:
 	$(MAKE) check TEST=local_mixed_eq
