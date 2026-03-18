@@ -1,0 +1,44 @@
+HOST_BIN := zeallua_host
+HOST_OBJDIR := obj/host
+
+HOST_SRCS := \
+	src/main.c \
+	src/lexer.c \
+	src/token.c \
+	src/parser.c \
+	src/ast.c \
+	src/compiler.c \
+	src/bytecode.c \
+	src/codegen.c \
+	src/interpreter.c \
+	src/z80_encoder.c
+
+HOST_OBJS := $(HOST_SRCS:src/%.c=$(HOST_OBJDIR)/%.o)
+HOST_DEPS := $(HOST_OBJS:.o=.d)
+
+CC ?= cc
+CPPFLAGS ?= -Isrc
+CFLAGS ?= -std=c2x -O0 -g -Wall -Wextra -MMD -MP
+LDFLAGS ?=
+LDLIBS ?=
+
+.PHONY: all clean test
+
+all: $(HOST_BIN)
+
+$(HOST_BIN): $(HOST_OBJS)
+	$(CC) $(LDFLAGS) -o $@ $(HOST_OBJS) $(LDLIBS)
+
+$(HOST_OBJDIR):
+	@mkdir -p $@
+
+$(HOST_OBJDIR)/%.o: src/%.c | $(HOST_OBJDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ $<
+
+test: $(HOST_BIN)
+	$(MAKE) -C test HOST_COMPILER=../$(HOST_BIN)
+
+clean:
+	-rm -rf $(HOST_OBJDIR) $(HOST_BIN)
+
+-include $(HOST_DEPS)

@@ -4,6 +4,39 @@
 
 Zeal Tiny Lua is a Lua compiler for the Zeal 8-bit OS.
 
+## Building
+
+Build the Zeal target binary with the default Makefile:
+
+```sh
+make
+```
+
+Build the native Linux host compiler used by the regression harness:
+
+```sh
+make host
+```
+
+Run the ucsim-backed semantic tests with the host compiler:
+
+```sh
+make host-test
+```
+
+Clean both target and host build outputs:
+
+```sh
+make clean
+```
+
+`Makefile.linux` is still available directly if needed:
+
+```sh
+make -f Makefile.linux
+make -f Makefile.linux clean
+```
+
 
 ## Supported Lua Features
 
@@ -224,6 +257,7 @@ print("Liftoff!")
 ```
 zeallua/
 ├── Makefile
+├── Makefile.linux
 ├── README.md
 ├── src/
 │   ├── main.c        # CLI entry point

@@ -2,6 +2,7 @@ ZOS_PATH ?= ../Zeal-8-bit-OS
 ZVB_SDK_PATH ?= ../Zeal-VideoBoard-SDK
 BIN=bin/zeallua.bin
 OBJ=obj/main.rel obj/lexer.rel obj/token.rel obj/parser.rel obj/ast.rel obj/compiler.rel obj/bytecode.rel obj/codegen.rel obj/z80_encoder.rel obj/interpreter.rel
+HOST_MAKEFILE=Makefile.linux
 CC=sdcc
 CFLAGS=-mz80 --std-c2x -c -I $(ZOS_PATH)/kernel_headers/sdcc/include/ -I $(ZVB_SDK_PATH)/include --codeseg TEXT --debug
 AS=sdasz80 -o -l -s
@@ -11,7 +12,7 @@ LDFLAGS=-n -y -mjwx -i -b _HEADER=0x4000 -k $(ZOS_PATH)/kernel_headers/sdcc/lib 
 ZOS_LIBS=-k $(ZVB_SDK_PATH)/lib -l zvb_sound -l zvb_gfx
 all: init $(BIN)
 
-.PHONY: init clean reallyclean test
+.PHONY: init clean reallyclean test host host-test host-clean
 
 init:
 	@mkdir -p obj
@@ -33,5 +34,16 @@ test: $(BIN)
 	# Test integration goes here
 	echo "Test passed"
 
+host:
+	$(MAKE) -f $(HOST_MAKEFILE)
+
+host-test:
+	$(MAKE) -f $(HOST_MAKEFILE) test
+
+host-clean:
+	$(MAKE) -f $(HOST_MAKEFILE) clean
+
 clean:
-	-rm -rf obj bin
+	-rm -rf obj bin zeallua_host
+
+reallyclean: clean
