@@ -133,6 +133,9 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0xFF); z80_jp_cc_label(&enc, CC_Z, "vm_halt");
     z80_cp_a_n(&enc, 0x01); z80_jp_cc_label(&enc, CC_Z, "op_pop");
     z80_cp_a_n(&enc, 0x03); z80_jp_cc_label(&enc, CC_Z, "op_rot3");
+    z80_cp_a_n(&enc, 0x10); z80_jp_cc_label(&enc, CC_Z, "op_loadnil");
+    z80_cp_a_n(&enc, 0x11); z80_jp_cc_label(&enc, CC_Z, "op_loadtrue");
+    z80_cp_a_n(&enc, 0x12); z80_jp_cc_label(&enc, CC_Z, "op_loadfalse");
     z80_cp_a_n(&enc, 0x13); z80_jp_cc_label(&enc, CC_Z, "op_loadconst");
     z80_cp_a_n(&enc, 0x20); z80_jp_cc_label(&enc, CC_Z, "op_getlocal");
     z80_cp_a_n(&enc, 0x21); z80_jp_cc_label(&enc, CC_Z, "op_setlocal");
@@ -160,6 +163,24 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_rst(&enc, 0x08);
 
     z80_add_label(&enc, "op_pop"); z80_call_label(&enc, "vstack_pop"); z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_loadnil");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_r_n(&enc, REG_A, 0);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_loadtrue");
+    z80_ld_rp_nn(&enc, RP_HL, 1);
+    z80_ld_r_n(&enc, REG_A, 1);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_loadfalse");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_r_n(&enc, REG_A, 1);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "op_loadconst");
     z80_ld_hl_mem_label(&enc, "pc_ptr"); z80_ld_a_hl(&enc); z80_inc_rp(&enc, RP_HL); z80_ld_mem_hl_label(&enc, "pc_ptr");
@@ -357,15 +378,17 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_call_label(&enc, "vstack_pop");
     z80_cp_a_n(&enc, 1); // Boolean
     z80_jr_cc_label(&enc, CC_Z, "jf_bool");
-    z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "op_jump");
+    z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "jf_take");
     z80_jr_label(&enc, "jf_skip");
     z80_add_label(&enc, "jf_bool");
-    z80_ld_r_r(&enc, REG_A, REG_L); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "op_jump");
+    z80_ld_r_r(&enc, REG_A, REG_L); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "jf_take");
     z80_add_label(&enc, "jf_skip");
     z80_ld_hl_mem_label(&enc, "pc_ptr");
     z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "pc_ptr");
     z80_jp_label(&enc, "vm_loop");
+    z80_add_label(&enc, "jf_take");
+    z80_jp_label(&enc, "op_jump");
 
     z80_add_label(&enc, "mul16"); // HL = HL * DE
     z80_push(&enc, RP_BC); z80_ld_r_n(&enc, REG_B, 16); z80_ld_r_r(&enc, REG_A, REG_H); z80_ld_r_n(&enc, REG_H, 0);

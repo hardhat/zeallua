@@ -20,15 +20,33 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false suite clean
 
-all: check
+all: suite
+
+suite:
+	$(MAKE) check TEST=program
+	$(MAKE) check TEST=arith
+	$(MAKE) check TEST=flow
+	$(MAKE) check TEST=flow_false
 
 check-arith:
 	$(MAKE) check TEST=arith
 
 run-arith:
 	$(MAKE) run TEST=arith
+
+check-flow:
+	$(MAKE) check TEST=flow
+
+run-flow:
+	$(MAKE) run TEST=flow
+
+check-flow-false:
+	$(MAKE) check TEST=flow_false
+
+run-flow-false:
+	$(MAKE) run TEST=flow_false
 
 check: $(ACTUAL)
 	tr -d '\r' < $(EXPECTED) | cmp -s $(ACTUAL) -
@@ -46,7 +64,7 @@ $(STUB_BIN): $(STUB_ASM) | out
 $(STUB_IHX): $(STUB_BIN)
 	$(OBJCOPY) -I binary -O ihex $< $@
 
-$(PROGRAM_BIN): $(PROGRAM_LUA) | out
+$(PROGRAM_BIN): $(PROGRAM_LUA) $(HOST_COMPILER) | out
 	$(HOST_COMPILER) $< $@
 
 $(PROGRAM_IHX): $(PROGRAM_BIN)
