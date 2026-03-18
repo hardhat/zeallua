@@ -31,13 +31,15 @@
 
 ### Phase 5: Testing & Refinement [IN PROGRESS]
 - [x] Update host tool to generate `.bin` files directly.
-- [/] Verify `test_host.bin` on emulator (Next Step).
+- [x] Verify `test_host.bin` on emulator.
+- [x] Implement Logic and Comparisons (EQ, NE, LT, LE, GT, GE).
+- [x] Implement Symbol Table emission (`.sym` files).
 - [ ] Implement Table support (`NEWTABLE`, `GETTABLE`, `SETTABLE`).
 - [ ] Implement Logic operators (`AND`, `OR`, `NOT`).
 - [ ] Implement Function calls and returns.
 - [ ] Test on actual Zeal-8-bit-OS hardware.
 
 ## Next Steps
-1. Run and verify the generated binary in a Z80 emulator.
-2. Implement Table support in machine code.
-3. Implement Logic and Comparisons (EQ, NE, LT, LE, GT, GE).
+1. Implement Table support in machine code (`NEWTABLE`, `GETTABLE`, `SETTABLE`).
+2. Implement Logic operators (`AND`, `OR`, `NOT`).
+3. Implement Function calls and returns.

@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define MAX_LABELS 256
+#define MAX_REFS 512
+
 typedef enum {
     REG_B = 0, REG_C = 1, REG_D = 2, REG_E = 3, REG_H = 4, REG_L = 5, REG_M = 6, REG_A = 7
 } Register;
@@ -16,14 +19,37 @@ typedef enum {
     CC_NZ = 0, CC_Z = 1, CC_NC = 2, CC_C = 3
 } Condition;
 
+// Labels & Refs
+typedef struct {
+    char name[32];
+    uint16_t addr;
+} Z80Label;
+
+typedef struct {
+    char name[32];
+    uint16_t patch_addr;
+    bool is_relative;
+    bool is_word;
+} Z80Ref;
+
 typedef struct {
     uint8_t* buffer;
     uint16_t capacity;
     uint16_t size;
     uint16_t base_addr;
+    
+    Z80Label labels[MAX_LABELS];
+    uint16_t label_count;
+    Z80Ref refs[MAX_REFS];
+    uint16_t ref_count;
 } Z80Encoder;
 
 void z80_init(Z80Encoder* e, uint8_t* buffer, uint16_t capacity, uint16_t base_addr);
+
+// Label management
+void z80_add_label(Z80Encoder* e, const char* name);
+void z80_add_ref(Z80Encoder* e, const char* name, bool is_relative, bool is_word);
+void z80_resolve_refs(Z80Encoder* e);
 
 // Basic emission
 void z80_emit_b(Z80Encoder* e, uint8_t b);
@@ -68,17 +94,16 @@ void z80_rst(Z80Encoder* e, uint8_t vec);
 void z80_ex_de_hl(Z80Encoder* e);
 void z80_djnz(Z80Encoder* e, int8_t offset);
 
-// Labels & Refs (simplified)
-typedef struct {
-    char name[32];
-    uint16_t addr;
-} Z80Label;
-
-typedef struct {
-    char name[32];
-    uint16_t patch_addr;
-    bool is_relative;
-    bool is_word;
-} Z80Ref;
+// Label variations (requested for cleaner syntax)
+void z80_jp_label(Z80Encoder* e, const char* label);
+void z80_jp_cc_label(Z80Encoder* e, Condition cc, const char* label);
+void z80_jr_label(Z80Encoder* e, const char* label);
+void z80_jr_cc_label(Z80Encoder* e, Condition cc, const char* label);
+void z80_call_label(Z80Encoder* e, const char* label);
+void z80_ld_rp_label(Z80Encoder* e, RegPair rp, const char* label);
+void z80_ld_mem_hl_label(Z80Encoder* e, const char* label);
+void z80_ld_hl_mem_label(Z80Encoder* e, const char* label);
+void z80_ld_de_mem_label(Z80Encoder* e, const char* label);
+void z80_djnz_label(Z80Encoder* e, const char* label);
 
 #endif

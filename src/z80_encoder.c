@@ -1,10 +1,59 @@
 #include "z80_encoder.h"
+#include <string.h>
 
 void z80_init(Z80Encoder* e, uint8_t* buffer, uint16_t capacity, uint16_t base_addr) {
     e->buffer = buffer;
     e->capacity = capacity;
     e->size = 0;
     e->base_addr = base_addr;
+    e->label_count = 0;
+    e->ref_count = 0;
+}
+
+void z80_add_label(Z80Encoder* e, const char* name) {
+    if (e->label_count < MAX_LABELS) {
+        strncpy(e->labels[e->label_count].name, name, 31);
+        e->labels[e->label_count].name[31] = '\0';
+        e->labels[e->label_count].addr = e->base_addr + e->size;
+        e->label_count++;
+    }
+}
+
+void z80_add_ref(Z80Encoder* e, const char* name, bool is_relative, bool is_word) {
+    if (e->ref_count < MAX_REFS) {
+        strncpy(e->refs[e->ref_count].name, name, 31);
+        e->refs[e->ref_count].name[31] = '\0';
+        e->refs[e->ref_count].patch_addr = e->size;
+        e->refs[e->ref_count].is_relative = is_relative;
+        e->refs[e->ref_count].is_word = is_word;
+        e->ref_count++;
+        if (is_word) z80_emit_w(e, 0);
+        else z80_emit_b(e, 0);
+    }
+}
+
+void z80_resolve_refs(Z80Encoder* e) {
+    for (uint16_t i = 0; i < e->ref_count; i++) {
+        uint16_t target = 0;
+        bool found = false;
+        for (uint16_t j = 0; j < e->label_count; j++) {
+            if (strcmp(e->refs[i].name, e->labels[j].name) == 0) {
+                target = e->labels[j].addr;
+                found = true;
+                break;
+            }
+        }
+        if (found) {
+            uint16_t patch = e->refs[i].patch_addr;
+            if (e->refs[i].is_relative) {
+                int8_t rel = (int8_t)((int16_t)target - (int16_t)(e->base_addr + patch + 1));
+                e->buffer[patch] = (uint8_t)rel;
+            } else if (e->refs[i].is_word) {
+                e->buffer[patch] = target & 0xFF;
+                e->buffer[patch+1] = (target >> 8) & 0xFF;
+            }
+        }
+    }
 }
 
 void z80_emit_b(Z80Encoder* e, uint8_t b) {
@@ -118,4 +167,56 @@ void z80_ex_de_hl(Z80Encoder* e) { z80_emit_b(e, 0xEB); }
 void z80_djnz(Z80Encoder* e, int8_t offset) {
     z80_emit_b(e, 0x10);
     z80_emit_b(e, (uint8_t)offset);
+}
+
+// Label variations
+void z80_jp_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0xC3);
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_jp_cc_label(Z80Encoder* e, Condition cc, const char* label) {
+    z80_emit_b(e, 0xC2 | (cc << 3));
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_jr_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0x18);
+    z80_add_ref(e, label, true, false);
+}
+
+void z80_jr_cc_label(Z80Encoder* e, Condition cc, const char* label) {
+    z80_emit_b(e, 0x20 | (cc << 3));
+    z80_add_ref(e, label, true, false);
+}
+
+void z80_call_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0xCD);
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_ld_rp_label(Z80Encoder* e, RegPair rp, const char* label) {
+    z80_emit_b(e, 0x01 | (rp << 4));
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_ld_mem_hl_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0x22);
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_ld_hl_mem_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0x2A);
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_ld_de_mem_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0xED);
+    z80_emit_b(e, 0x5B);
+    z80_add_ref(e, label, false, true);
+}
+
+void z80_djnz_label(Z80Encoder* e, const char* label) {
+    z80_emit_b(e, 0x10);
+    z80_add_ref(e, label, true, false);
 }
