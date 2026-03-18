@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-gt run-gt check-ge run-ge suite clean
 
 all: suite
 
@@ -29,6 +29,11 @@ suite:
 	$(MAKE) check TEST=arith
 	$(MAKE) check TEST=flow
 	$(MAKE) check TEST=flow_false
+	$(MAKE) check TEST=literal_true
+	$(MAKE) check TEST=literal_false
+	$(MAKE) check TEST=le
+	$(MAKE) check TEST=gt
+	$(MAKE) check TEST=ge
 
 check-arith:
 	$(MAKE) check TEST=arith
@@ -48,8 +53,38 @@ check-flow-false:
 run-flow-false:
 	$(MAKE) run TEST=flow_false
 
+check-literal-true:
+	$(MAKE) check TEST=literal_true
+
+run-literal-true:
+	$(MAKE) run TEST=literal_true
+
+check-literal-false:
+	$(MAKE) check TEST=literal_false
+
+run-literal-false:
+	$(MAKE) run TEST=literal_false
+
+check-le:
+	$(MAKE) check TEST=le
+
+run-le:
+	$(MAKE) run TEST=le
+
+check-gt:
+	$(MAKE) check TEST=gt
+
+run-gt:
+	$(MAKE) run TEST=gt
+
+check-ge:
+	$(MAKE) check TEST=ge
+
+run-ge:
+	$(MAKE) run TEST=ge
+
 check: $(ACTUAL)
-	tr -d '\r' < $(EXPECTED) | cmp -s $(ACTUAL) -
+	tr -d '\r' < $(EXPECTED) | awk '{ print }' | cmp -s $(ACTUAL) -
 	@echo "ucsim regression passed"
 
 run: $(ACTUAL)
