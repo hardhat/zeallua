@@ -49,6 +49,21 @@ static int resolve_local(const char* name) {
 }
 
 static void compile_expr(Expr* expr);
+static void compile_stmt(Stmt* stmt);
+
+static void patch_relative_jump(uint16_t jump_pos, uint16_t target_pos) {
+    int16_t offset = (int16_t)(target_pos - jump_pos - 2);
+    current_func->code[jump_pos] = (uint8_t)(offset & 0xFF);
+    current_func->code[jump_pos + 1] = (uint8_t)((offset >> 8) & 0xFF);
+}
+
+static void compile_block(Block* block) {
+    Stmt* stmt = block ? block->head : 0;
+    while (stmt) {
+        compile_stmt(stmt);
+        stmt = stmt->next;
+    }
+}
 
 static void compile_expr(Expr* expr) {
     if (!expr) return;
@@ -221,18 +236,52 @@ static void compile_stmt(Stmt* stmt) {
             emit_op(OP_POP);
         } break;
         case STMT_IF: {
+            uint16_t end_jumps[MAX_LOCALS];
+            uint16_t end_jump_count = 0;
+            ElseIf* elif = 0;
+
             compile_expr(stmt->data.if_stmt.cond);
             emit_op(OP_JUMPIFFALSE);
-            uint16_t jump_pos = current_func->code_len;
-            emit_i16(0); 
-            
-            Stmt* s = stmt->data.if_stmt.then_block->head;
-            while (s) { compile_stmt(s); s = s->next; }
-            
-            uint16_t end_pos = current_func->code_len;
-            int16_t offset = (int16_t)(end_pos - jump_pos - 2);
-            current_func->code[jump_pos] = (uint8_t)(offset & 0xFF);
-            current_func->code[jump_pos+1] = (uint8_t)((offset >> 8) & 0xFF);
+            uint16_t false_jump = current_func->code_len;
+            emit_i16(0);
+
+            compile_block(stmt->data.if_stmt.then_block);
+
+            if (stmt->data.if_stmt.elseifs || stmt->data.if_stmt.else_block) {
+                emit_op(OP_JUMP);
+                end_jumps[end_jump_count++] = current_func->code_len;
+                emit_i16(0);
+            }
+
+            patch_relative_jump(false_jump, current_func->code_len);
+
+            elif = stmt->data.if_stmt.elseifs;
+            while (elif) {
+                compile_expr(elif->cond);
+                emit_op(OP_JUMPIFFALSE);
+                false_jump = current_func->code_len;
+                emit_i16(0);
+
+                compile_block(elif->block);
+
+                if (elif->next || stmt->data.if_stmt.else_block) {
+                    emit_op(OP_JUMP);
+                    end_jumps[end_jump_count++] = current_func->code_len;
+                    emit_i16(0);
+                }
+
+                patch_relative_jump(false_jump, current_func->code_len);
+                elif = elif->next;
+            }
+
+            if (stmt->data.if_stmt.else_block) {
+                compile_block(stmt->data.if_stmt.else_block);
+            }
+
+            while (end_jump_count > 0) {
+                end_jump_count--;
+                patch_relative_jump(end_jumps[end_jump_count], current_func->code_len);
+            }
         } break;
         case STMT_WHILE: {
             uint16_t loop_start = current_func->code_len;
@@ -240,18 +289,14 @@ static void compile_stmt(Stmt* stmt) {
             emit_op(OP_JUMPIFFALSE);
             uint16_t exit_jump = current_func->code_len;
             emit_i16(0);
-            
-            Stmt* s = stmt->data.while_stmt.block->head;
-            while (s) { compile_stmt(s); s = s->next; }
+
+            compile_block(stmt->data.while_stmt.block);
             
             emit_op(OP_JUMP);
             int16_t offset = (int16_t)(loop_start - current_func->code_len - 2);
             emit_i16(offset);
-            
-            uint16_t end_pos = current_func->code_len;
-            int16_t exit_offset = (int16_t)(end_pos - exit_jump - 2);
-            current_func->code[exit_jump] = (uint8_t)(exit_offset & 0xFF);
-            current_func->code[exit_jump+1] = (uint8_t)((exit_offset >> 8) & 0xFF);
+
+            patch_relative_jump(exit_jump, current_func->code_len);
         } break;
         case STMT_RETURN: {
             ExprList* el = stmt->data.return_exprs;
