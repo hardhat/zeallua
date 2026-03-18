@@ -1,4 +1,5 @@
 #include "lexer.h"
+#include <stddef.h>
 
 // Basic character checks since ctype.h might be heavy
 static bool is_whitespace(char c) {
@@ -92,7 +93,7 @@ static void make_error(Lexer* lex, const char* msg, Token* out_tok) {
     lex->has_error = true;
     
     // Copy error msg safely
-    int i = 0;
+    size_t i = 0;
     while (msg[i] != '\0' && i < sizeof(lex->error_msg) - 1) {
         lex->error_msg[i] = msg[i];
         i++;
