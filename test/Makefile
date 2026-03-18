@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 all: suite
 
@@ -41,6 +41,14 @@ suite:
 	$(MAKE) check TEST=eq_false
 	$(MAKE) check TEST=ne
 	$(MAKE) check TEST=ne_false
+	$(MAKE) check TEST=mixed_eq
+	$(MAKE) check TEST=mixed_eq_false
+	$(MAKE) check TEST=nested_if
+	$(MAKE) check TEST=nested_if_false
+	$(MAKE) check TEST=local_mixed_eq
+	$(MAKE) check TEST=local_mixed_eq_false
+	$(MAKE) check TEST=both_arith_eq
+	$(MAKE) check TEST=both_arith_eq_false
 
 check-arith:
 	$(MAKE) check TEST=arith
@@ -131,6 +139,54 @@ check-ne-false:
 
 run-ne-false:
 	$(MAKE) run TEST=ne_false
+
+check-mixed-eq:
+	$(MAKE) check TEST=mixed_eq
+
+run-mixed-eq:
+	$(MAKE) run TEST=mixed_eq
+
+check-mixed-eq-false:
+	$(MAKE) check TEST=mixed_eq_false
+
+run-mixed-eq-false:
+	$(MAKE) run TEST=mixed_eq_false
+
+check-nested-if:
+	$(MAKE) check TEST=nested_if
+
+run-nested-if:
+	$(MAKE) run TEST=nested_if
+
+check-nested-if-false:
+	$(MAKE) check TEST=nested_if_false
+
+run-nested-if-false:
+	$(MAKE) run TEST=nested_if_false
+
+check-local-mixed-eq:
+	$(MAKE) check TEST=local_mixed_eq
+
+run-local-mixed-eq:
+	$(MAKE) run TEST=local_mixed_eq
+
+check-local-mixed-eq-false:
+	$(MAKE) check TEST=local_mixed_eq_false
+
+run-local-mixed-eq-false:
+	$(MAKE) run TEST=local_mixed_eq_false
+
+check-both-arith-eq:
+	$(MAKE) check TEST=both_arith_eq
+
+run-both-arith-eq:
+	$(MAKE) run TEST=both_arith_eq
+
+check-both-arith-eq-false:
+	$(MAKE) check TEST=both_arith_eq_false
+
+run-both-arith-eq-false:
+	$(MAKE) run TEST=both_arith_eq_false
 
 check: $(ACTUAL)
 	tr -d '\r' < $(EXPECTED) | awk '{ print }' | cmp -s $(ACTUAL) -
