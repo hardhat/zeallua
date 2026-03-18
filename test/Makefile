@@ -10,6 +10,7 @@ STUB_IHX := out/ucsim_stub.ihx
 PROGRAM_LUA := program.lua
 PROGRAM_BIN := out/program.bin
 PROGRAM_IHX := out/program.ihx
+COMMANDS := out/commands.txt
 ACTUAL := out/actual.txt
 EXPECTED := expected.txt
 
@@ -41,8 +42,16 @@ $(PROGRAM_IHX): $(PROGRAM_BIN)
 	grep -vi '^:..00000[35]' $@ > $@.tmp
 	mv $@.tmp $@
 
-$(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) commands.txt
-	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < commands.txt | grep '^0x0200' > $@
+$(COMMANDS): $(PROGRAM_IHX)
+	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' out/program.sym); \
+	addr_no_prefix=$${addr_hex#0x}; \
+	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + 6))); \
+	printf 'step 5000\ndump /h rom %s %s\nquit\n' "$$addr_hex" "$$end_hex" > $@
+
+$(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS)
+	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' out/program.sym); \
+	addr_lc=$$(printf '%s' "$$addr_hex" | tr 'A-F' 'a-f'); \
+	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < $(COMMANDS) | grep "^$$addr_lc " | sed 's/^0x[0-9a-f]\{4\} //' > $@
 
 clean:
 	rm -rf out
