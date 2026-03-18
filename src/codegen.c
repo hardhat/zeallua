@@ -12,6 +12,7 @@
 #define TYPE_NIL 0
 #define TYPE_BOOL 1
 #define TYPE_NUMBER 2
+#define TYPE_STRING 3
 #define TYPE_TABLE 4
 #define TABLE_CAPACITY 8
 #define TABLE_ENTRY_SIZE 6
@@ -155,6 +156,8 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0x30); z80_jp_cc_label(&enc, CC_Z, "op_newtable");
     z80_cp_a_n(&enc, 0x31); z80_jp_cc_label(&enc, CC_Z, "op_gettable");
     z80_cp_a_n(&enc, 0x32); z80_jp_cc_label(&enc, CC_Z, "op_settable");
+    z80_cp_a_n(&enc, 0x33); z80_jp_cc_label(&enc, CC_Z, "op_getfield");
+    z80_cp_a_n(&enc, 0x34); z80_jp_cc_label(&enc, CC_Z, "op_setfield");
     z80_cp_a_n(&enc, 0x40); z80_jp_cc_label(&enc, CC_Z, "op_add");
     z80_cp_a_n(&enc, 0x41); z80_jp_cc_label(&enc, CC_Z, "op_sub");
     z80_cp_a_n(&enc, 0x42); z80_jp_cc_label(&enc, CC_Z, "op_mul");
@@ -410,6 +413,80 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_call_label(&enc, "vstack_push");
     z80_jp_label(&enc, "vm_loop");
 
+    z80_add_label(&enc, "op_getfield");
+    z80_ld_hl_mem_label(&enc, "pc_ptr");
+    z80_ld_a_hl(&enc);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_ld_r_r(&enc, REG_L, REG_A);
+    z80_ld_r_n(&enc, REG_H, 0);
+    z80_ld_r_r(&enc, REG_E, REG_L);
+    z80_ld_r_r(&enc, REG_D, REG_H);
+    z80_add_hl_rp(&enc, RP_HL);
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_rp_label(&enc, RP_DE, "const_pool");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_a_hl(&enc);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "op_gettable");
+
+    z80_add_label(&enc, "op_setfield");
+    z80_call_label(&enc, "vstack_pop");
+    z80_ld_mem_hl_label(&enc, "table_entry_temp");
+    z80_ld_hl_mem_label(&enc, "pc_ptr");
+    z80_ld_a_hl(&enc);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "pc_ptr");
+    z80_ld_r_r(&enc, REG_L, REG_A);
+    z80_ld_r_n(&enc, REG_H, 0);
+    z80_ld_r_r(&enc, REG_E, REG_L);
+    z80_ld_r_r(&enc, REG_D, REG_H);
+    z80_add_hl_rp(&enc, RP_HL);
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_rp_label(&enc, RP_DE, "const_pool");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_a_hl(&enc);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "vstack_push");
+    z80_ld_hl_mem_label(&enc, "table_entry_temp");
+    z80_ld_r_n(&enc, REG_A, TYPE_TABLE);
+    z80_call_label(&enc, "vstack_push");
+    z80_call_label(&enc, "vstack_pop");
+    z80_ld_mem_hl_label(&enc, "table_key_temp");
+    z80_ld_rp_label(&enc, RP_HL, "table_key_type");
+    z80_ld_hl_a(&enc);
+    z80_call_label(&enc, "vstack_pop");
+    z80_ld_mem_hl_label(&enc, "table_entry_temp");
+    z80_call_label(&enc, "vstack_pop");
+    z80_ld_mem_hl_label(&enc, "table_val_temp");
+    z80_ld_rp_label(&enc, RP_HL, "table_val_type");
+    z80_ld_hl_a(&enc);
+    z80_ld_hl_mem_label(&enc, "table_entry_temp");
+    z80_ld_r_n(&enc, REG_A, TYPE_TABLE);
+    z80_call_label(&enc, "vstack_push");
+    z80_ld_hl_mem_label(&enc, "table_key_temp");
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_HL, "table_key_type");
+    z80_ld_a_hl(&enc);
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "vstack_push");
+    z80_ld_hl_mem_label(&enc, "table_val_temp");
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_HL, "table_val_type");
+    z80_ld_a_hl(&enc);
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "op_settable");
+
     z80_add_label(&enc, "op_gettable");
     z80_call_label(&enc, "vstack_pop");
     z80_ld_mem_hl_label(&enc, "table_key_temp");
@@ -431,9 +508,17 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_ld_a_hl(&enc);
     z80_cp_a_r(&enc, REG_C);
     z80_jp_cc_label(&enc, CC_NZ, "get_table_next");
+    z80_cp_a_n(&enc, TYPE_STRING);
+    z80_jp_cc_label(&enc, CC_Z, "get_table_string_compare");
     z80_ld_hl_mem_label(&enc, "table_key_temp");
     z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
     z80_jp_cc_label(&enc, CC_NZ, "get_table_next");
+    z80_jp_label(&enc, "get_table_match");
+    z80_add_label(&enc, "get_table_string_compare");
+    z80_ld_hl_mem_label(&enc, "table_key_temp");
+    z80_call_label(&enc, "strcmp_hl_de");
+    z80_jp_cc_label(&enc, CC_NZ, "get_table_next");
+    z80_add_label(&enc, "get_table_match");
     z80_pop(&enc, RP_BC);
     z80_pop(&enc, RP_HL);
     z80_ld_rp_nn(&enc, RP_DE, 3);
@@ -484,9 +569,17 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_ld_a_hl(&enc);
     z80_cp_a_r(&enc, REG_C);
     z80_jp_cc_label(&enc, CC_NZ, "set_table_next");
+    z80_cp_a_n(&enc, TYPE_STRING);
+    z80_jp_cc_label(&enc, CC_Z, "set_table_string_compare");
     z80_ld_hl_mem_label(&enc, "table_key_temp");
     z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
     z80_jp_cc_label(&enc, CC_NZ, "set_table_next");
+    z80_jp_label(&enc, "set_table_match");
+    z80_add_label(&enc, "set_table_string_compare");
+    z80_ld_hl_mem_label(&enc, "table_key_temp");
+    z80_call_label(&enc, "strcmp_hl_de");
+    z80_jp_cc_label(&enc, CC_NZ, "set_table_next");
+    z80_add_label(&enc, "set_table_match");
     z80_pop(&enc, RP_BC);
     z80_pop(&enc, RP_HL);
     z80_pop(&enc, RP_BC);
@@ -729,14 +822,53 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_ex_de_hl(&enc);
     z80_ret(&enc);
 
+    z80_add_label(&enc, "strcmp_hl_de");
+    z80_add_label(&enc, "strcmp_hl_de_loop");
+    z80_emit_b(&enc, 0x1A); // ld a, (de)
+    z80_cp_a_r(&enc, REG_M);
+    z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "strcmp_hl_de_done");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_DE);
+    z80_jr_label(&enc, "strcmp_hl_de_loop");
+    z80_add_label(&enc, "strcmp_hl_de_equal");
+    z80_or_a(&enc);
+    z80_add_label(&enc, "strcmp_hl_de_done");
+    z80_ret(&enc);
+
     z80_add_label(&enc, "const_pool");
     for (i = 0; i < chunk->main.const_count; i++) {
         Constant* c = &chunk->main.constants[i];
         if (c->type == CONST_NUMBER) {
             z80_emit_b(&enc, 2);
             z80_emit_w(&enc, (uint16_t)c->data.number);
+        } else if (c->type == CONST_STRING) {
+            uint16_t string_offset = 0;
+            uint16_t string_base = enc.base_addr + enc.size + (chunk->main.const_count * 3);
+            for (uint16_t j = 0; j < i; j++) {
+                Constant* prev = &chunk->main.constants[j];
+                if (prev->type == CONST_STRING) {
+                    const char* text = prev->data.string;
+                    while (*text++) string_offset++;
+                    string_offset++;
+                }
+            }
+            z80_emit_b(&enc, TYPE_STRING);
+            z80_emit_w(&enc, (uint16_t)(string_base + string_offset));
         } else {
             z80_emit_b(&enc, 0); z80_emit_w(&enc, 0);
+        }
+    }
+    for (i = 0; i < chunk->main.const_count; i++) {
+        Constant* c = &chunk->main.constants[i];
+        if (c->type == CONST_STRING) {
+            const char* text = c->data.string;
+            while (*text) {
+                z80_emit_b(&enc, (uint8_t)*text);
+                text++;
+            }
+            z80_emit_b(&enc, 0);
         }
     }
 

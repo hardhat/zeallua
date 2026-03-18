@@ -132,11 +132,12 @@ static void compile_expr(Expr* expr) {
                         emit_op(OP_SETTABLE);
                         break;
                     case TF_FIELD: {
-                        compile_expr(f->data.field.value);
                         Constant c; c.type = CONST_STRING; c.data.string = f->data.field.name;
                         uint8_t idx = add_constant(&c);
-                        emit_op(OP_SETFIELD);
+                        emit_op(OP_LOADCONST);
                         emit_byte(idx);
+                        compile_expr(f->data.field.value);
+                        emit_op(OP_SETTABLE);
                     } break;
                     case TF_ARRAY: {
                         Constant c; c.type = CONST_NUMBER; c.data.number = i++;
@@ -212,8 +213,9 @@ static void compile_expr(Expr* expr) {
             compile_expr(expr->data.field.base);
             Constant c; c.type = CONST_STRING; c.data.string = expr->data.field.field;
             uint8_t idx = add_constant(&c);
-            emit_op(OP_GETFIELD);
+            emit_op(OP_LOADCONST);
             emit_byte(idx);
+            emit_op(OP_GETTABLE);
         } break;
         default: break;
     }
@@ -251,8 +253,10 @@ static void compile_stmt(Stmt* stmt) {
                     compile_expr(lv->lval.data.field.base);
                     Constant c; c.type = CONST_STRING; c.data.string = lv->lval.data.field.field;
                     uint8_t idx = add_constant(&c);
-                    emit_op(OP_SETFIELD);
+                    emit_op(OP_LOADCONST);
                     emit_byte(idx);
+                    emit_op(OP_ROT3);
+                    emit_op(OP_SETTABLE);
                 }
                 lv = lv->next;
             }
