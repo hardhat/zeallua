@@ -152,8 +152,44 @@ static void compile_expr(Expr* expr) {
             }
         } break;
         case EXPR_BINOP: {
-            compile_expr(expr->data.binop.left);
-            compile_expr(expr->data.binop.right);
+            switch (expr->data.binop.op) {
+                case BINOP_AND: {
+                    uint16_t end_jump_pos;
+
+                    compile_expr(expr->data.binop.left);
+                    emit_op(OP_DUP);
+                    emit_op(OP_JUMPIFFALSE);
+                    end_jump_pos = current_func->code_len;
+                    emit_i16(0);
+                    emit_op(OP_POP);
+                    compile_expr(expr->data.binop.right);
+                    patch_relative_jump(end_jump_pos, current_func->code_len);
+                    break;
+                }
+                case BINOP_OR: {
+                    uint16_t false_jump_pos;
+                    uint16_t end_jump_pos;
+
+                    compile_expr(expr->data.binop.left);
+                    emit_op(OP_DUP);
+                    emit_op(OP_JUMPIFFALSE);
+                    false_jump_pos = current_func->code_len;
+                    emit_i16(0);
+                    emit_op(OP_JUMP);
+                    end_jump_pos = current_func->code_len;
+                    emit_i16(0);
+                    patch_relative_jump(false_jump_pos, current_func->code_len);
+                    emit_op(OP_POP);
+                    compile_expr(expr->data.binop.right);
+                    patch_relative_jump(end_jump_pos, current_func->code_len);
+                    break;
+                }
+                default:
+                    compile_expr(expr->data.binop.left);
+                    compile_expr(expr->data.binop.right);
+                    break;
+            }
+
             switch (expr->data.binop.op) {
                 case BINOP_ADD: emit_op(OP_ADD); break;
                 case BINOP_SUB: emit_op(OP_SUB); break;
@@ -167,6 +203,8 @@ static void compile_expr(Expr* expr) {
                 case BINOP_GT:  emit_op(OP_GT); break;
                 case BINOP_GE:  emit_op(OP_GE); break;
                 case BINOP_CONCAT: emit_op(OP_CONCAT); break;
+                case BINOP_AND:
+                case BINOP_OR:
                 default: break;
             }
         } break;

@@ -37,7 +37,7 @@
 - [x] Implement Table support (`NEWTABLE`, `GETTABLE`, `SETTABLE`) for numeric and string keys.
 - [x] Implement `not` and truthiness handling in machine code.
 - [x] Add semantic ucsim regression coverage for arithmetic, comparisons, branches, locals, loops, tables, string-key access, and minimal `for ... in`.
-- [ ] Implement short-circuit logic operators (`AND`, `OR`).
+- [x] Implement short-circuit logic operators (`AND`, `OR`).
 - [ ] Implement Function calls and returns.
 - [ ] Test on actual Zeal-8-bit-OS hardware.
 
@@ -58,6 +58,6 @@
 - [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
 
 ## Next Steps
-1. Implement short-circuit logic operators (`AND`, `OR`).
-2. Implement function definitions, calls, and returns.
-3. Close the highest-value regression gaps in Phase 6.
+1. Implement function definitions, calls, and returns.
+2. Close the highest-value regression gaps in Phase 6.
+3. Test on actual Zeal-8-bit-OS hardware.
