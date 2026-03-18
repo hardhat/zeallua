@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-gt run-gt check-ge run-ge suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false suite clean
 
 all: suite
 
@@ -32,8 +32,15 @@ suite:
 	$(MAKE) check TEST=literal_true
 	$(MAKE) check TEST=literal_false
 	$(MAKE) check TEST=le
+	$(MAKE) check TEST=le_false
 	$(MAKE) check TEST=gt
+	$(MAKE) check TEST=gt_false
 	$(MAKE) check TEST=ge
+	$(MAKE) check TEST=ge_false
+	$(MAKE) check TEST=eq
+	$(MAKE) check TEST=eq_false
+	$(MAKE) check TEST=ne
+	$(MAKE) check TEST=ne_false
 
 check-arith:
 	$(MAKE) check TEST=arith
@@ -71,17 +78,59 @@ check-le:
 run-le:
 	$(MAKE) run TEST=le
 
+check-le-false:
+	$(MAKE) check TEST=le_false
+
+run-le-false:
+	$(MAKE) run TEST=le_false
+
 check-gt:
 	$(MAKE) check TEST=gt
 
 run-gt:
 	$(MAKE) run TEST=gt
 
+check-gt-false:
+	$(MAKE) check TEST=gt_false
+
+run-gt-false:
+	$(MAKE) run TEST=gt_false
+
 check-ge:
 	$(MAKE) check TEST=ge
 
 run-ge:
 	$(MAKE) run TEST=ge
+
+check-ge-false:
+	$(MAKE) check TEST=ge_false
+
+run-ge-false:
+	$(MAKE) run TEST=ge_false
+
+check-eq:
+	$(MAKE) check TEST=eq
+
+run-eq:
+	$(MAKE) run TEST=eq
+
+check-eq-false:
+	$(MAKE) check TEST=eq_false
+
+run-eq-false:
+	$(MAKE) run TEST=eq_false
+
+check-ne:
+	$(MAKE) check TEST=ne
+
+run-ne:
+	$(MAKE) run TEST=ne
+
+check-ne-false:
+	$(MAKE) check TEST=ne_false
+
+run-ne-false:
+	$(MAKE) run TEST=ne_false
 
 check: $(ACTUAL)
 	tr -d '\r' < $(EXPECTED) | awk '{ print }' | cmp -s $(ACTUAL) -
