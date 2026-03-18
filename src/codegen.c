@@ -282,7 +282,7 @@ static void emit_scope_ops(void) {
     z80_ld_r_r(&enc, REG_L, REG_A); z80_ld_r_n(&enc, REG_H, 0); z80_ld_r_r(&enc, REG_E, REG_L); z80_ld_r_r(&enc, REG_D, REG_H); z80_add_hl_rp(&enc, RP_HL); z80_add_hl_rp(&enc, RP_DE);
     z80_ld_de_mem_label(&enc, "fp_ptr"); z80_ex_de_hl(&enc); z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
     z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL);
-    z80_ld_a_hl(&enc); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_E, REG_M); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_D, REG_M); z80_ex_de_hl(&enc);
+    z80_ld_r_r(&enc, REG_D, REG_M); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_E, REG_M); z80_inc_rp(&enc, RP_HL); z80_ld_a_hl(&enc); z80_ex_de_hl(&enc);
     z80_call_label(&enc, "vstack_push"); z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "op_setlocal");
@@ -292,7 +292,7 @@ static void emit_scope_ops(void) {
     z80_ld_r_r(&enc, REG_L, REG_C); z80_ld_r_n(&enc, REG_H, 0); z80_ld_r_r(&enc, REG_E, REG_L); z80_ld_r_r(&enc, REG_D, REG_H); z80_add_hl_rp(&enc, RP_HL); z80_add_hl_rp(&enc, RP_DE);
     z80_ld_de_mem_label(&enc, "fp_ptr"); z80_ex_de_hl(&enc); z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
     z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL);
-    z80_pop(&enc, RP_AF); z80_ld_hl_a(&enc); z80_inc_rp(&enc, RP_HL); z80_pop(&enc, RP_DE); z80_ld_r_r(&enc, REG_M, REG_E); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_M, REG_D);
+    z80_pop(&enc, RP_AF); z80_pop(&enc, RP_DE); z80_ld_r_r(&enc, REG_M, REG_D); z80_inc_rp(&enc, RP_HL); z80_ld_r_r(&enc, REG_M, REG_E); z80_inc_rp(&enc, RP_HL); z80_ld_hl_a(&enc);
     z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "op_getglobal");
