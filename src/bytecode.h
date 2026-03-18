@@ -23,8 +23,6 @@ typedef enum {
     OP_NEWTABLE = 0x30,
     OP_GETTABLE = 0x31,
     OP_SETTABLE = 0x32,
-    OP_GETFIELD = 0x33,
-    OP_SETFIELD = 0x34,
 
     OP_ADD = 0x40,
     OP_SUB = 0x41,
