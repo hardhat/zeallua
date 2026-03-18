@@ -44,9 +44,9 @@
 ### Phase 6: Coverage Gaps & Remaining Runtime Work [PLANNED]
 
 #### Missing Test Coverage
-- [ ] Add regression for multiple assignment (`a, b = 1, 2`).
-- [ ] Add regression for mixed table literals containing both array and named fields in the same literal.
-- [ ] Add regression proving string keys compare by content across distinct string literals, not only reused constants.
+- [x] Add regression for multiple assignment (`a, b = 1, 2`).
+- [x] Add regression for mixed table literals containing both array and named fields in the same literal.
+- [x] Add regression proving string keys compare by content across distinct string literals, not only reused constants.
 - [ ] Add output-oriented regression coverage for `print(...)` semantics if stdout validation is still desired.
 
 #### Missing Implementation
@@ -58,6 +58,6 @@
 - [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
 
 ## Next Steps
-1. Close the highest-value regression gaps in Phase 6.
+1. Decide whether stdout-oriented `print(...)` regression coverage is still needed, and add it if so.
 2. Implement closures and upvalue capture for nested functions.
 3. Test on actual Zeal-8-bit-OS hardware.

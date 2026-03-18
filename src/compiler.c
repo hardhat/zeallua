@@ -310,19 +310,55 @@ static void compile_expr(Expr* expr) {
     }
 }
 
+static int count_exprs(ExprList* exprs) {
+    int count = 0;
+    while (exprs) {
+        count++;
+        exprs = exprs->next;
+    }
+    return count;
+}
+
+static int collect_lvalues(LValueList* list, LValueList** items, int max_items) {
+    int count = 0;
+    while (list && count < max_items) {
+        items[count++] = list;
+        list = list->next;
+    }
+    return count;
+}
+
 static void compile_stmt(Stmt* stmt) {
     if (!stmt) return;
     switch (stmt->type) {
         case STMT_ASSIGN: {
             ExprList* el = stmt->data.assign.exprs;
-            int count = 0;
+            LValueList* lvalue_items[MAX_LOCALS];
+            int expr_count;
+            int lvalue_count;
+
             while (el) {
                 compile_expr(el->expr);
-                count++;
                 el = el->next;
             }
-            LValueList* lv = stmt->data.assign.lvars;
-            while (lv) {
+
+            expr_count = count_exprs(stmt->data.assign.exprs);
+            lvalue_count = collect_lvalues(stmt->data.assign.lvars, lvalue_items, MAX_LOCALS);
+
+            while (expr_count > lvalue_count) {
+                emit_op(OP_POP);
+                expr_count--;
+            }
+            while (expr_count < lvalue_count) {
+                emit_op(OP_LOADNIL);
+                expr_count++;
+            }
+
+            while (lvalue_count > 0) {
+                LValueList* lv;
+
+                lvalue_count--;
+                lv = lvalue_items[lvalue_count];
                 if (lv->lval.type == LVAL_VAR) {
                     int local_idx = resolve_local(lv->lval.data.var_name);
                     if (local_idx != -1) {
@@ -347,7 +383,6 @@ static void compile_stmt(Stmt* stmt) {
                     emit_op(OP_ROT3);
                     emit_op(OP_SETTABLE);
                 }
-                lv = lv->next;
             }
         } break;
         case STMT_CALL: {
