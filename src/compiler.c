@@ -58,10 +58,16 @@ static void patch_relative_jump(uint16_t jump_pos, uint16_t target_pos) {
 }
 
 static void compile_block(Block* block) {
+    uint16_t starting_local_count = current_func->local_count;
     Stmt* stmt = block ? block->head : 0;
     while (stmt) {
         compile_stmt(stmt);
         stmt = stmt->next;
+    }
+
+    while (current_func->local_count > starting_local_count) {
+        emit_op(OP_POP);
+        current_func->local_count--;
     }
 }
 
@@ -341,11 +347,7 @@ bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     
     if (!ast_chunk || !ast_chunk->block) return false;
     
-    Stmt* curr = ast_chunk->block->head;
-    while (curr) {
-        compile_stmt(curr);
-        curr = curr->next;
-    }
+    compile_block(ast_chunk->block);
     
     emit_op(OP_HALT);
     return true;

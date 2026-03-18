@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 all: suite
 
@@ -49,6 +49,8 @@ suite:
 	$(MAKE) check TEST=elseif_fallback
 	$(MAKE) check TEST=else_local
 	$(MAKE) check TEST=elseif_local
+	$(MAKE) check TEST=branch_local_shadow_then
+	$(MAKE) check TEST=branch_local_shadow_else
 	$(MAKE) check TEST=nested_else_if
 	$(MAKE) check TEST=nested_else_if_false
 	$(MAKE) check TEST=nested_else_elseif
@@ -201,6 +203,18 @@ check-elseif-local:
 
 run-elseif-local:
 	$(MAKE) run TEST=elseif_local
+
+check-branch-local-shadow-then:
+	$(MAKE) check TEST=branch_local_shadow_then
+
+run-branch-local-shadow-then:
+	$(MAKE) run TEST=branch_local_shadow_then
+
+check-branch-local-shadow-else:
+	$(MAKE) check TEST=branch_local_shadow_else
+
+run-branch-local-shadow-else:
+	$(MAKE) run TEST=branch_local_shadow_else
 
 check-nested-else-if:
 	$(MAKE) check TEST=nested_else_if
