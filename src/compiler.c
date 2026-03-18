@@ -51,6 +51,26 @@ static int resolve_local(const char* name) {
 static void compile_expr(Expr* expr);
 static void compile_stmt(Stmt* stmt);
 
+static void emit_number_constant(int16_t value) {
+    Constant c;
+    uint8_t idx;
+
+    c.type = CONST_NUMBER;
+    c.data.number = value;
+    idx = add_constant(&c);
+    emit_op(OP_LOADCONST);
+    emit_byte(idx);
+}
+
+static bool is_negative_number_literal(Expr* expr) {
+    if (!expr) return false;
+    if (expr->type == EXPR_NUMBER) return expr->data.number < 0;
+    if (expr->type == EXPR_UNOP && expr->data.unop.op == UNOP_NEG && expr->data.unop.expr && expr->data.unop.expr->type == EXPR_NUMBER) {
+        return expr->data.unop.expr->data.number != 0;
+    }
+    return false;
+}
+
 static void patch_relative_jump(uint16_t jump_pos, uint16_t target_pos) {
     int16_t offset = (int16_t)(target_pos - jump_pos - 2);
     current_func->code[jump_pos] = (uint8_t)(offset & 0xFF);
@@ -303,6 +323,61 @@ static void compile_stmt(Stmt* stmt) {
             emit_i16(offset);
 
             patch_relative_jump(exit_jump, current_func->code_len);
+        } break;
+        case STMT_REPEAT: {
+            uint16_t loop_start = current_func->code_len;
+
+            compile_block(stmt->data.repeat_stmt.block);
+            compile_expr(stmt->data.repeat_stmt.cond);
+            emit_op(OP_JUMPIFFALSE);
+            emit_i16((int16_t)(loop_start - current_func->code_len - 2));
+        } break;
+        case STMT_FOR_NUM: {
+            static const char for_limit_name[] = "__for_limit";
+            static const char for_step_name[] = "__for_step";
+            uint16_t base_local = current_func->local_count;
+            uint16_t loop_check;
+            uint16_t exit_jump;
+            uint8_t var_idx;
+            uint8_t limit_idx;
+            uint8_t step_idx;
+            bool descending = is_negative_number_literal(stmt->data.for_num.step);
+
+            compile_expr(stmt->data.for_num.start);
+            current_func->locals[current_func->local_count++] = ast_strdup(stmt->data.for_num.var);
+            compile_expr(stmt->data.for_num.end);
+            current_func->locals[current_func->local_count++] = for_limit_name;
+            if (stmt->data.for_num.step) compile_expr(stmt->data.for_num.step);
+            else emit_number_constant(1);
+            current_func->locals[current_func->local_count++] = for_step_name;
+
+            var_idx = (uint8_t)base_local;
+            limit_idx = (uint8_t)(base_local + 1);
+            step_idx = (uint8_t)(base_local + 2);
+
+            loop_check = current_func->code_len;
+
+            emit_op(OP_GETLOCAL); emit_byte(var_idx);
+            emit_op(OP_GETLOCAL); emit_byte(limit_idx);
+            emit_op(descending ? OP_GE : OP_LE);
+            emit_op(OP_JUMPIFFALSE);
+            exit_jump = current_func->code_len;
+            emit_i16(0);
+            compile_block(stmt->data.for_num.block);
+
+            emit_op(OP_GETLOCAL); emit_byte(var_idx);
+            emit_op(OP_GETLOCAL); emit_byte(step_idx);
+            emit_op(OP_ADD);
+            emit_op(OP_SETLOCAL); emit_byte(var_idx);
+            emit_op(OP_JUMP);
+            emit_i16((int16_t)(loop_check - current_func->code_len - 2));
+
+            patch_relative_jump(exit_jump, current_func->code_len);
+
+            emit_op(OP_POP);
+            emit_op(OP_POP);
+            emit_op(OP_POP);
+            current_func->local_count = base_local;
         } break;
         case STMT_RETURN: {
             ExprList* el = stmt->data.return_exprs;

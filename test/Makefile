@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-le run-le check-le-false run-le-false check-gt run-gt check-gt-false run-gt-false check-ge run-ge check-ge-false run-ge-false check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-le run-le check-le-false run-le-false check-le-negative run-le-negative check-le-mixed-negative-false run-le-mixed-negative-false check-gt run-gt check-gt-false run-gt-false check-gt-negative run-gt-negative check-gt-mixed-negative-false run-gt-mixed-negative-false check-ge run-ge check-ge-false run-ge-false check-ge-negative run-ge-negative check-ge-mixed-negative run-ge-mixed-negative check-lt-negative run-lt-negative check-lt-mixed-negative run-lt-mixed-negative check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-repeat-until run-repeat-until check-repeat-local-shadow run-repeat-local-shadow check-for-count run-for-count check-for-step run-for-step check-for-negative-step run-for-negative-step check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 all: suite
 
@@ -39,6 +39,14 @@ suite:
 	$(MAKE) check TEST=mod
 	$(MAKE) check TEST=le
 	$(MAKE) check TEST=le_false
+	$(MAKE) check TEST=lt_negative
+	$(MAKE) check TEST=le_negative
+	$(MAKE) check TEST=gt_negative
+	$(MAKE) check TEST=ge_negative
+	$(MAKE) check TEST=lt_mixed_negative
+	$(MAKE) check TEST=le_mixed_negative_false
+	$(MAKE) check TEST=gt_mixed_negative_false
+	$(MAKE) check TEST=ge_mixed_negative
 	$(MAKE) check TEST=gt
 	$(MAKE) check TEST=gt_false
 	$(MAKE) check TEST=ge
@@ -69,6 +77,11 @@ suite:
 	$(MAKE) check TEST=while_zero
 	$(MAKE) check TEST=while_accumulate
 	$(MAKE) check TEST=while_local_shadow
+	$(MAKE) check TEST=repeat_until
+	$(MAKE) check TEST=repeat_local_shadow
+	$(MAKE) check TEST=for_count
+	$(MAKE) check TEST=for_step
+	$(MAKE) check TEST=for_negative_step
 	$(MAKE) check TEST=local_mixed_eq
 	$(MAKE) check TEST=local_mixed_eq_false
 	$(MAKE) check TEST=local_update
@@ -154,6 +167,30 @@ check-le-false:
 run-le-false:
 	$(MAKE) run TEST=le_false
 
+check-le-negative:
+	$(MAKE) check TEST=le_negative
+
+run-le-negative:
+	$(MAKE) run TEST=le_negative
+
+check-le-mixed-negative-false:
+	$(MAKE) check TEST=le_mixed_negative_false
+
+run-le-mixed-negative-false:
+	$(MAKE) run TEST=le_mixed_negative_false
+
+check-lt-negative:
+	$(MAKE) check TEST=lt_negative
+
+run-lt-negative:
+	$(MAKE) run TEST=lt_negative
+
+check-lt-mixed-negative:
+	$(MAKE) check TEST=lt_mixed_negative
+
+run-lt-mixed-negative:
+	$(MAKE) run TEST=lt_mixed_negative
+
 check-gt:
 	$(MAKE) check TEST=gt
 
@@ -166,6 +203,18 @@ check-gt-false:
 run-gt-false:
 	$(MAKE) run TEST=gt_false
 
+check-gt-negative:
+	$(MAKE) check TEST=gt_negative
+
+run-gt-negative:
+	$(MAKE) run TEST=gt_negative
+
+check-gt-mixed-negative-false:
+	$(MAKE) check TEST=gt_mixed_negative_false
+
+run-gt-mixed-negative-false:
+	$(MAKE) run TEST=gt_mixed_negative_false
+
 check-ge:
 	$(MAKE) check TEST=ge
 
@@ -177,6 +226,18 @@ check-ge-false:
 
 run-ge-false:
 	$(MAKE) run TEST=ge_false
+
+check-ge-negative:
+	$(MAKE) check TEST=ge_negative
+
+run-ge-negative:
+	$(MAKE) run TEST=ge_negative
+
+check-ge-mixed-negative:
+	$(MAKE) check TEST=ge_mixed_negative
+
+run-ge-mixed-negative:
+	$(MAKE) run TEST=ge_mixed_negative
 
 check-eq:
 	$(MAKE) check TEST=eq
@@ -333,6 +394,36 @@ check-while-local-shadow:
 
 run-while-local-shadow:
 	$(MAKE) run TEST=while_local_shadow
+
+check-repeat-until:
+	$(MAKE) check TEST=repeat_until
+
+run-repeat-until:
+	$(MAKE) run TEST=repeat_until
+
+check-repeat-local-shadow:
+	$(MAKE) check TEST=repeat_local_shadow
+
+run-repeat-local-shadow:
+	$(MAKE) run TEST=repeat_local_shadow
+
+check-for-count:
+	$(MAKE) check TEST=for_count
+
+run-for-count:
+	$(MAKE) run TEST=for_count
+
+check-for-step:
+	$(MAKE) check TEST=for_step
+
+run-for-step:
+	$(MAKE) run TEST=for_step
+
+check-for-negative-step:
+	$(MAKE) check TEST=for_negative_step
+
+run-for-negative-step:
+	$(MAKE) run TEST=for_negative_step
 
 check-local-mixed-eq:
 	$(MAKE) check TEST=local_mixed_eq

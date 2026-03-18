@@ -453,12 +453,35 @@ static Stmt* parse_repeat(Parser* p) {
     return s;
 }
 
+static Stmt* parse_for(Parser* p) {
+    expect(p, TOK_FOR);
+
+    if (check(p, TOK_IDENT) && p->next.type == TOK_EQ) {
+        Stmt* s = new_stmt(STMT_FOR_NUM);
+        s->data.for_num.var = ast_strdup(p->curr.value.ident);
+        advance(p);
+        expect(p, TOK_EQ);
+        s->data.for_num.start = parse_expr(p);
+        expect(p, TOK_COMMA);
+        s->data.for_num.end = parse_expr(p);
+        if (match(p, TOK_COMMA)) s->data.for_num.step = parse_expr(p);
+        else s->data.for_num.step = 0;
+        expect(p, TOK_DO);
+        s->data.for_num.block = parse_block(p);
+        expect(p, TOK_END);
+        return s;
+    }
+
+    p->has_error = true;
+    return new_stmt(STMT_DO);
+}
+
 static Stmt* parse_stmt(Parser* p) {
     if (check(p, TOK_IF)) return parse_if(p);
     if (check(p, TOK_WHILE)) return parse_while(p);
     if (check(p, TOK_REPEAT)) return parse_repeat(p);
-    // TODO: for, function, return, break, do
-    // if (check(p, TOK_FOR)) return parse_for(p);
+    if (check(p, TOK_FOR)) return parse_for(p);
+    // TODO: function, break support in loops, generic for-in
     if (check(p, TOK_LOCAL)) return parse_local(p);
     if (match(p, TOK_BREAK)) return new_stmt(STMT_BREAK);
     if (match(p, TOK_DO)) {
