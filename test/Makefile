@@ -20,7 +20,7 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-le run-le check-le-false run-le-false check-le-negative run-le-negative check-le-mixed-negative-false run-le-mixed-negative-false check-gt run-gt check-gt-false run-gt-false check-gt-negative run-gt-negative check-gt-mixed-negative-false run-gt-mixed-negative-false check-ge run-ge check-ge-false run-ge-false check-ge-negative run-ge-negative check-ge-mixed-negative run-ge-mixed-negative check-lt-negative run-lt-negative check-lt-mixed-negative run-lt-mixed-negative check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-table-array-get run-table-array-get check-table-set-get run-table-set-get check-table-overwrite run-table-overwrite check-table-overwrite-to-table run-table-overwrite-to-table check-table-overwrite-to-number run-table-overwrite-to-number check-table-missing-nil run-table-missing-nil check-table-nested-get run-table-nested-get check-table-capacity run-table-capacity check-table-field-get run-table-field-get check-table-field-set run-table-field-set check-for-in-array run-for-in-array check-for-in-empty run-for-in-empty check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-repeat-until run-repeat-until check-repeat-local-shadow run-repeat-local-shadow check-for-count run-for-count check-for-step run-for-step check-for-negative-step run-for-negative-step check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
+.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-le run-le check-le-false run-le-false check-le-negative run-le-negative check-le-mixed-negative-false run-le-mixed-negative-false check-gt run-gt check-gt-false run-gt-false check-gt-negative run-gt-negative check-gt-mixed-negative-false run-gt-mixed-negative-false check-ge run-ge check-ge-false run-ge-false check-ge-negative run-ge-negative check-ge-mixed-negative run-ge-mixed-negative check-lt-negative run-lt-negative check-lt-mixed-negative run-lt-mixed-negative check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-table-array-get run-table-array-get check-table-set-get run-table-set-get check-table-overwrite run-table-overwrite check-table-overwrite-to-table run-table-overwrite-to-table check-table-overwrite-to-number run-table-overwrite-to-number check-table-missing-nil run-table-missing-nil check-table-nested-get run-table-nested-get check-table-capacity run-table-capacity check-table-field-get run-table-field-get check-table-field-set run-table-field-set check-table-string-index-get run-table-string-index-get check-table-string-index-set run-table-string-index-set check-for-in-array run-for-in-array check-for-in-empty run-for-in-empty check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-repeat-until run-repeat-until check-repeat-local-shadow run-repeat-local-shadow check-for-count run-for-count check-for-step run-for-step check-for-negative-step run-for-negative-step check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 all: suite
 
@@ -67,6 +67,8 @@ suite:
 	$(MAKE) check TEST=table_capacity
 	$(MAKE) check TEST=table_field_get
 	$(MAKE) check TEST=table_field_set
+	$(MAKE) check TEST=table_string_index_get
+	$(MAKE) check TEST=table_string_index_set
 	$(MAKE) check TEST=for_in_array
 	$(MAKE) check TEST=for_in_empty
 	$(MAKE) check TEST=else_taken
@@ -346,6 +348,18 @@ check-table-field-set:
 
 run-table-field-set:
 	$(MAKE) run TEST=table_field_set
+
+check-table-string-index-get:
+	$(MAKE) check TEST=table_string_index_get
+
+run-table-string-index-get:
+	$(MAKE) run TEST=table_string_index_get
+
+check-table-string-index-set:
+	$(MAKE) check TEST=table_string_index_set
+
+run-table-string-index-set:
+	$(MAKE) run TEST=table_string_index_set
 
 check-for-in-array:
 	$(MAKE) check TEST=for_in_array
