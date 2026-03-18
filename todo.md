@@ -52,7 +52,7 @@
 #### Missing Implementation
 - [ ] Implement exponentiation (`^`) in the VM/runtime.
 - [ ] Implement string concatenation (`..`) in the VM/runtime.
-- [ ] Implement length operator (`#`) in the VM/runtime.
+- [x] Implement length operator (`#`) in the VM/runtime.
 - [ ] Implement built-ins `type`, `tostring`, and `tonumber`.
 - [ ] Implement closures and upvalue capture for nested functions.
 - [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
