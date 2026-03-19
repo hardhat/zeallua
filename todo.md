@@ -51,7 +51,13 @@
 
 #### Missing Implementation
 - [x] Implement exponentiation (`^`) in the VM/runtime.
-- [ ] Implement string concatenation (`..`) in the VM/runtime.
+- [x] Implement string concatenation (`..`) in the VM/runtime.
+	- [x] Phase A: refactor runtime strings to length-prefixed objects.
+	- [x] Phase A: separate the string pool from table allocation.
+	- [x] Phase A: share a singleton empty string object.
+	- [x] Phase A: make string helpers (`#`, compare-by-content, `tostring`, `tonumber`) length-aware.
+	- [x] Phase A: implement concat allocation on top of the new string representation.
+	- [x] Phase A: add concat-focused regressions.
 - [x] Implement length operator (`#`) in the VM/runtime.
 - [x] Implement built-ins `type`, `tostring`, and `tonumber`.
 - [ ] Implement closures and upvalue capture for nested functions.
@@ -59,6 +65,5 @@
 
 ## Next Steps
 1. Decide whether stdout-oriented `print(...)` regression coverage is still needed, and add it if so.
-2. Implement string concatenation (`..`).
-3. Implement closures and upvalue capture for nested functions.
-4. Test on actual Zeal-8-bit-OS hardware.
+2. Implement closures and upvalue capture for nested functions.
+3. Test on actual Zeal-8-bit-OS hardware.

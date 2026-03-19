@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define MAX_LABELS 256
-#define MAX_REFS 512
+#define MAX_REFS 1024
 
 typedef enum {
     REG_B = 0, REG_C = 1, REG_D = 2, REG_E = 3, REG_H = 4, REG_L = 5, REG_M = 6, REG_A = 7

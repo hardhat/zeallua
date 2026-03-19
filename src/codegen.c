@@ -18,9 +18,9 @@
 #define TABLE_CAPACITY 8
 #define TABLE_ENTRY_SIZE 6
 #define TABLE_SIZE (4 + (TABLE_CAPACITY * TABLE_ENTRY_SIZE))
+#define STRING_HEADER_BYTES 2
 #define TABLE_HEAP_BYTES (TABLE_SIZE * 8)
 #define STRING_HEAP_BYTES 256
-#define HEAP_BYTES (TABLE_HEAP_BYTES + STRING_HEAP_BYTES)
 #define CALL_STACK_BYTES 96
 #define VSTACK_BYTES 512
 
@@ -103,6 +103,18 @@ static void make_two_index_label(char* dst, uint16_t cap, const char* prefix, ui
     append_uint16(dst, &len, cap, second);
 }
 
+static void emit_string_object(Z80Encoder* e, const char* label, const char* text) {
+    uint16_t len = (uint16_t)strlen(text);
+
+    z80_add_label(e, label);
+    z80_emit_w(e, len);
+    while (*text) {
+        z80_emit_b(e, (uint8_t)*text);
+        text++;
+    }
+    z80_emit_b(e, 0);
+}
+
 static void emit_function_constant_pool(const char* pool_label, const char* string_prefix, BytecodeFunction* func) {
     char label[32];
     uint16_t i;
@@ -130,14 +142,8 @@ static void emit_function_constant_pool(const char* pool_label, const char* stri
     for (i = 0; i < func->const_count; i++) {
         Constant* c = &func->constants[i];
         if (c->type == CONST_STRING) {
-            const char* text = c->data.string;
             make_indexed_label(label, sizeof(label), string_prefix, i);
-            z80_add_label(&enc, label);
-            while (*text) {
-                z80_emit_b(&enc, (uint8_t)*text);
-                text++;
-            }
-            z80_emit_b(&enc, 0);
+            emit_string_object(&enc, label, c->data.string);
         }
     }
 }
@@ -199,6 +205,8 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_add_label(&enc, "_start");
     z80_ld_rp_label(&enc, RP_HL, "heap_space");
     z80_ld_mem_hl_label(&enc, "heap_ptr");
+    z80_ld_rp_label(&enc, RP_HL, "string_space");
+    z80_ld_mem_hl_label(&enc, "string_ptr");
     z80_ld_rp_label(&enc, RP_HL, "vstack_end");
     z80_ld_mem_hl_label(&enc, "vsp_ptr");
     z80_ld_mem_hl_label(&enc, "fp_ptr");
@@ -264,6 +272,7 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0x54); z80_jp_cc_label(&enc, CC_Z, "op_gt");
     z80_cp_a_n(&enc, 0x55); z80_jp_cc_label(&enc, CC_Z, "op_ge");
     z80_cp_a_n(&enc, 0x60); z80_jp_cc_label(&enc, CC_Z, "op_not");
+    z80_cp_a_n(&enc, 0x70); z80_jp_cc_label(&enc, CC_Z, "op_concat");
     z80_cp_a_n(&enc, 0x71); z80_jp_cc_label(&enc, CC_Z, "op_len");
     z80_cp_a_n(&enc, 0x80); z80_jp_cc_label(&enc, CC_Z, "op_jump");
     z80_cp_a_n(&enc, 0x81); z80_jp_cc_label(&enc, CC_Z, "op_jump_false");
@@ -409,30 +418,19 @@ static void emit_io_and_arithmetic_ops(void) {
 
     z80_add_label(&enc, "op_tostring");
     z80_call_label(&enc, "vstack_pop");
-    z80_cp_a_n(&enc, TYPE_STRING); z80_jr_cc_label(&enc, CC_Z, "tostring_push");
-    z80_cp_a_n(&enc, TYPE_NUMBER); z80_jr_cc_label(&enc, CC_Z, "tostring_number");
-    z80_cp_a_n(&enc, TYPE_NIL); z80_jr_cc_label(&enc, CC_Z, "tostring_nil");
-    z80_cp_a_n(&enc, TYPE_BOOL); z80_jr_cc_label(&enc, CC_Z, "tostring_bool");
-    z80_cp_a_n(&enc, TYPE_TABLE); z80_jr_cc_label(&enc, CC_Z, "tostring_table");
-    z80_ld_rp_label(&enc, RP_HL, "str_function_value");
-    z80_jr_label(&enc, "tostring_push");
-    z80_add_label(&enc, "tostring_nil");
-    z80_ld_rp_label(&enc, RP_HL, "str_nil_value");
-    z80_jr_label(&enc, "tostring_push");
-    z80_add_label(&enc, "tostring_bool");
-    z80_ld_r_r(&enc, REG_A, REG_H); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "tostring_true");
-    z80_ld_r_r(&enc, REG_A, REG_L); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "tostring_true");
-    z80_ld_rp_label(&enc, RP_HL, "str_false_value");
-    z80_jr_label(&enc, "tostring_push");
-    z80_add_label(&enc, "tostring_true");
-    z80_ld_rp_label(&enc, RP_HL, "str_true_value");
-    z80_jr_label(&enc, "tostring_push");
-    z80_add_label(&enc, "tostring_table");
-    z80_ld_rp_label(&enc, RP_HL, "str_table_value");
-    z80_jr_label(&enc, "tostring_push");
-    z80_add_label(&enc, "tostring_number");
-    z80_call_label(&enc, "number_to_string");
-    z80_add_label(&enc, "tostring_push");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_ld_r_n(&enc, REG_A, TYPE_STRING);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "op_concat");
+    z80_call_label(&enc, "vstack_pop");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_ld_mem_hl_label(&enc, "concat_right_ptr");
+    z80_call_label(&enc, "vstack_pop");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_ld_de_mem_label(&enc, "concat_right_ptr");
+    z80_call_label(&enc, "alloc_concat_string");
     z80_ld_r_n(&enc, REG_A, TYPE_STRING);
     z80_call_label(&enc, "vstack_push");
     z80_jp_label(&enc, "vm_loop");
@@ -501,15 +499,28 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_emit_b(&enc, 0x12); // ld (de), a
     z80_ld_r_r(&enc, REG_A, REG_H); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "print_num_loop");
     z80_ld_r_r(&enc, REG_A, REG_L); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "print_num_loop");
-    z80_ex_de_hl(&enc); z80_call_label(&enc, "print_str");
+    z80_ex_de_hl(&enc); z80_call_label(&enc, "print_zstr");
     z80_ret(&enc);
 
-    z80_add_label(&enc, "print_str"); // HL = null-terminated string
+    z80_add_label(&enc, "print_zstr"); // HL = null-terminated string
     z80_push(&enc, RP_HL); z80_ld_r_n(&enc, REG_B, 0);
     z80_add_label(&enc, "ps_len"); z80_ld_a_hl(&enc); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "ps_out");
     z80_inc_rp(&enc, RP_HL); z80_inc_r(&enc, REG_B); z80_jr_label(&enc, "ps_len");
     z80_add_label(&enc, "ps_out"); z80_pop(&enc, RP_DE); // DE = start
     z80_ld_r_r(&enc, REG_C, REG_B); z80_ld_r_n(&enc, REG_B, 0); z80_push(&enc, RP_BC); z80_pop(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "tmp_len");
+    z80_ld_rp_label(&enc, RP_HL, "tmp_len");
+    z80_ld_r_n(&enc, REG_B, 0); // stdout
+    z80_ld_r_n(&enc, REG_A, 2); // write
+    z80_rst(&enc, 0x08); z80_ret(&enc);
+
+    z80_add_label(&enc, "print_str"); // HL = length-prefixed string object
+    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_push(&enc, RP_BC); z80_pop(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "tmp_len");
     z80_ld_rp_label(&enc, RP_HL, "tmp_len");
     z80_ld_r_n(&enc, REG_B, 0); // stdout
@@ -575,70 +586,249 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_ld_r_n(&enc, REG_A, '-');
     z80_emit_b(&enc, 0x12);
     z80_add_label(&enc, "number_to_string_done");
+    z80_ld_rp_label(&enc, RP_HL, "num_buffer_end");
+    z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
     z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "alloc_raw_string");
     z80_ret(&enc);
 
     z80_add_label(&enc, "alloc_string_copy");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_call_label(&enc, "alloc_raw_string");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "alloc_raw_string"); // HL = source, DE = length
+    z80_ld_mem_hl_label(&enc, "string_source");
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "alloc_string_space");
+    z80_ld_r_r(&enc, REG_A, REG_D);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_raw_string_copy");
+    z80_ld_r_r(&enc, REG_A, REG_E);
+    z80_or_a(&enc);
+    z80_ret(&enc);
+    z80_add_label(&enc, "alloc_raw_string_copy");
     z80_push(&enc, RP_HL);
-    z80_ld_de_mem_label(&enc, "heap_ptr");
-    z80_push(&enc, RP_DE);
-    z80_add_label(&enc, "alloc_string_copy_loop");
+    z80_ld_hl_mem_label(&enc, "string_length");
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_hl_mem_label(&enc, "string_source");
+    z80_call_label(&enc, "copy_bc_bytes");
+    z80_xor_a(&enc);
+    z80_emit_b(&enc, 0x12);
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "alloc_string_space"); // HL = length, returns HL = object, DE = payload or 0 on empty/fail
+    z80_ld_mem_hl_label(&enc, "string_length");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_string_space_non_empty");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "alloc_string_space_empty");
+    z80_add_label(&enc, "alloc_string_space_non_empty");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_hl_mem_label(&enc, "string_ptr");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_mem_hl_label(&enc, "string_candidate");
+    z80_ex_de_hl(&enc);
+    z80_ld_rp_label(&enc, RP_HL, "string_end");
+    z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
+    z80_jr_cc_label(&enc, CC_C, "alloc_string_space_empty");
+    z80_ld_hl_mem_label(&enc, "string_ptr");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "string_length");
+    z80_ld_r_r(&enc, REG_M, REG_E);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);
+    z80_inc_rp(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "string_candidate");
+    z80_ld_mem_hl_label(&enc, "string_ptr");
+    z80_pop(&enc, RP_DE);
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+    z80_add_label(&enc, "alloc_string_space_empty");
+    z80_ld_rp_label(&enc, RP_HL, "str_empty");
+    z80_ld_rp_nn(&enc, RP_DE, 0);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "alloc_concat_string"); // HL = left string, DE = right string
+    z80_ld_mem_hl_label(&enc, "concat_left_ptr");
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "concat_right_ptr");
+    z80_ld_hl_mem_label(&enc, "concat_left_ptr");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "concat_left_len");
+    z80_ld_hl_mem_label(&enc, "concat_right_ptr");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "concat_right_len");
+    z80_ld_hl_mem_label(&enc, "concat_left_len");
+    z80_ld_de_mem_label(&enc, "concat_right_len");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_call_label(&enc, "alloc_string_space");
+    z80_ld_r_r(&enc, REG_A, REG_D);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_concat_copy");
+    z80_ld_r_r(&enc, REG_A, REG_E);
+    z80_or_a(&enc);
+    z80_ret(&enc);
+    z80_add_label(&enc, "alloc_concat_copy");
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "concat_left_len");
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_hl_mem_label(&enc, "concat_left_ptr");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_call_label(&enc, "copy_bc_bytes");
+    z80_ld_hl_mem_label(&enc, "concat_right_len");
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_hl_mem_label(&enc, "concat_right_ptr");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_call_label(&enc, "copy_bc_bytes");
+    z80_xor_a(&enc);
+    z80_emit_b(&enc, 0x12);
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "copy_bc_bytes");
+    z80_add_label(&enc, "copy_bc_bytes_check");
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "copy_bc_bytes_body");
+    z80_ld_r_r(&enc, REG_A, REG_C);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "copy_bc_bytes_done");
+    z80_add_label(&enc, "copy_bc_bytes_body");
     z80_ld_a_hl(&enc);
     z80_emit_b(&enc, 0x12);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_DE);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_NZ, "alloc_string_copy_loop");
-    z80_ex_de_hl(&enc);
-    z80_ld_mem_hl_label(&enc, "heap_ptr");
-    z80_pop(&enc, RP_HL);
-    z80_pop(&enc, RP_DE);
+    z80_dec_rp(&enc, RP_BC);
+    z80_jr_label(&enc, "copy_bc_bytes_check");
+    z80_add_label(&enc, "copy_bc_bytes_done");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "coerce_to_string");
+    z80_cp_a_n(&enc, TYPE_STRING);
+    z80_jr_cc_label(&enc, CC_Z, "coerce_to_string_return");
+    z80_cp_a_n(&enc, TYPE_NUMBER); z80_jr_cc_label(&enc, CC_Z, "coerce_to_string_number");
+    z80_cp_a_n(&enc, TYPE_NIL); z80_jr_cc_label(&enc, CC_Z, "coerce_to_string_nil");
+    z80_cp_a_n(&enc, TYPE_BOOL); z80_jr_cc_label(&enc, CC_Z, "coerce_to_string_bool");
+    z80_cp_a_n(&enc, TYPE_TABLE); z80_jr_cc_label(&enc, CC_Z, "coerce_to_string_table");
+    z80_ld_rp_label(&enc, RP_HL, "str_function_value");
+    z80_ret(&enc);
+    z80_add_label(&enc, "coerce_to_string_nil");
+    z80_ld_rp_label(&enc, RP_HL, "str_nil_value");
+    z80_ret(&enc);
+    z80_add_label(&enc, "coerce_to_string_bool");
+    z80_ld_r_r(&enc, REG_A, REG_H); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "coerce_to_string_true");
+    z80_ld_r_r(&enc, REG_A, REG_L); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_NZ, "coerce_to_string_true");
+    z80_ld_rp_label(&enc, RP_HL, "str_false_value");
+    z80_ret(&enc);
+    z80_add_label(&enc, "coerce_to_string_true");
+    z80_ld_rp_label(&enc, RP_HL, "str_true_value");
+    z80_ret(&enc);
+    z80_add_label(&enc, "coerce_to_string_table");
+    z80_ld_rp_label(&enc, RP_HL, "str_table_value");
+    z80_ret(&enc);
+    z80_add_label(&enc, "coerce_to_string_number");
+    z80_call_label(&enc, "number_to_string");
+    z80_add_label(&enc, "coerce_to_string_return");
     z80_ret(&enc);
 
     z80_add_label(&enc, "string_to_number");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "tonumber_remaining");
+    z80_pop(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "tonumber_ptr");
     z80_ld_rp_label(&enc, RP_DE, "tonumber_negative");
     z80_xor_a(&enc);
     z80_emit_b(&enc, 0x12);
+    z80_ld_hl_mem_label(&enc, "tonumber_remaining");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "string_to_number_have_chars");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "string_to_number_fail");
+    z80_add_label(&enc, "string_to_number_have_chars");
+    z80_ld_hl_mem_label(&enc, "tonumber_ptr");
     z80_ld_a_hl(&enc);
     z80_cp_a_n(&enc, '-');
     z80_jr_cc_label(&enc, CC_NZ, "string_to_number_after_sign");
     z80_inc_rp(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "tonumber_ptr");
+    z80_ld_hl_mem_label(&enc, "tonumber_remaining");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "tonumber_remaining");
     z80_ld_rp_label(&enc, RP_DE, "tonumber_negative");
     z80_ld_r_n(&enc, REG_A, 1);
     z80_emit_b(&enc, 0x12);
     z80_add_label(&enc, "string_to_number_after_sign");
+    z80_ld_hl_mem_label(&enc, "tonumber_remaining");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "string_to_number_init");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "string_to_number_fail");
+    z80_add_label(&enc, "string_to_number_init");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_mem_hl_label(&enc, "tonumber_result");
+    z80_add_label(&enc, "string_to_number_loop");
+    z80_ld_hl_mem_label(&enc, "tonumber_remaining");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "string_to_number_read_char");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "string_to_number_done_digits");
+    z80_add_label(&enc, "string_to_number_read_char");
+    z80_ld_hl_mem_label(&enc, "tonumber_ptr");
     z80_ld_a_hl(&enc);
     z80_sub_a_n(&enc, '0');
     z80_cp_a_n(&enc, 10);
     z80_jr_cc_label(&enc, CC_NC, "string_to_number_fail");
-    z80_ld_rp_nn(&enc, RP_HL, 0);
-    z80_add_label(&enc, "string_to_number_loop");
-    z80_push(&enc, RP_HL);
-    z80_ld_de_mem_label(&enc, "tonumber_ptr");
-    z80_emit_b(&enc, 0x1A);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "string_to_number_done_digits");
-    z80_sub_a_n(&enc, '0');
-    z80_cp_a_n(&enc, 10);
-    z80_jr_cc_label(&enc, CC_NC, "string_to_number_fail_pop");
     z80_ld_r_r(&enc, REG_C, REG_A);
-    z80_pop(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "tonumber_result");
     z80_ld_rp_nn(&enc, RP_DE, 10);
     z80_call_label(&enc, "mul16");
     z80_ld_r_r(&enc, REG_A, REG_C);
     z80_ld_r_r(&enc, REG_E, REG_A);
     z80_ld_r_n(&enc, REG_D, 0);
     z80_add_hl_rp(&enc, RP_DE);
-    z80_ld_de_mem_label(&enc, "tonumber_ptr");
-    z80_inc_rp(&enc, RP_DE);
-    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "tonumber_result");
+    z80_ld_hl_mem_label(&enc, "tonumber_ptr");
+    z80_inc_rp(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "tonumber_ptr");
-    z80_ex_de_hl(&enc);
+    z80_ld_hl_mem_label(&enc, "tonumber_remaining");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "tonumber_remaining");
     z80_jr_label(&enc, "string_to_number_loop");
     z80_add_label(&enc, "string_to_number_done_digits");
-    z80_pop(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "tonumber_result");
     z80_ld_rp_label(&enc, RP_DE, "tonumber_negative");
     z80_emit_b(&enc, 0x1A);
     z80_or_a(&enc);
@@ -649,8 +839,6 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_add_label(&enc, "string_to_number_success");
     z80_ld_r_n(&enc, REG_A, 1);
     z80_ret(&enc);
-    z80_add_label(&enc, "string_to_number_fail_pop");
-    z80_pop(&enc, RP_HL);
     z80_add_label(&enc, "string_to_number_fail");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_xor_a(&enc);
@@ -803,15 +991,9 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_jr_label(&enc, "len_push");
 
     z80_add_label(&enc, "len_string");
-    z80_ld_rp_nn(&enc, RP_DE, 0);
-    z80_add_label(&enc, "len_string_loop");
-    z80_ld_a_hl(&enc);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "len_string_done");
+    z80_ld_r_r(&enc, REG_E, REG_M);
     z80_inc_rp(&enc, RP_HL);
-    z80_inc_rp(&enc, RP_DE);
-    z80_jr_label(&enc, "len_string_loop");
-    z80_add_label(&enc, "len_string_done");
+    z80_ld_r_r(&enc, REG_D, REG_M);
     z80_ex_de_hl(&enc);
     z80_jr_label(&enc, "len_push");
 
@@ -1283,17 +1465,35 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "strcmp_hl_de");
+    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_emit_b(&enc, 0x1A); // ld a, (de)
+    z80_cp_a_r(&enc, REG_C);
+    z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
+    z80_inc_rp(&enc, RP_DE);
+    z80_emit_b(&enc, 0x1A); // ld a, (de)
+    z80_cp_a_r(&enc, REG_B);
+    z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
+    z80_inc_rp(&enc, RP_DE);
     z80_add_label(&enc, "strcmp_hl_de_loop");
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_loop_body");
+    z80_ld_r_r(&enc, REG_A, REG_C);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "strcmp_hl_de_equal");
+    z80_add_label(&enc, "strcmp_hl_de_loop_body");
     z80_emit_b(&enc, 0x1A); // ld a, (de)
     z80_cp_a_r(&enc, REG_M);
     z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "strcmp_hl_de_done");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_DE);
+    z80_dec_rp(&enc, RP_BC);
     z80_jr_label(&enc, "strcmp_hl_de_loop");
     z80_add_label(&enc, "strcmp_hl_de_equal");
-    z80_or_a(&enc);
+    z80_xor_a(&enc);
     z80_add_label(&enc, "strcmp_hl_de_done");
     z80_ret(&enc);
 
@@ -1352,6 +1552,14 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "return_type"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "len_table_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "len_target"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_source"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_length"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_candidate"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "concat_left_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "concat_right_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "concat_left_len"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "concat_right_len"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "mul_left"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "mul_right"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "mul_result"); z80_emit_w(&enc, 0);
@@ -1360,6 +1568,8 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "pow_exp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "pow_result"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "tonumber_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "tonumber_remaining"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "tonumber_result"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "tonumber_negative"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "tostring_negative"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "heap_ptr"); z80_emit_w(&enc, 0);
@@ -1368,25 +1578,28 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "table_val_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_val_type"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "table_entry_temp"); z80_emit_w(&enc, 0);
-    z80_add_label(&enc, "heap_space"); for(int i=0; i<HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "heap_space"); for(int i=0; i<TABLE_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "string_space"); for(int i=0; i<STRING_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "string_end");
     z80_add_label(&enc, "callstack_space"); for(int i=0; i<CALL_STACK_BYTES; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "callstack_end");
     z80_add_label(&enc, "vstack_space"); for(int i=0; i<VSTACK_BYTES; i++) z80_emit_b(&enc, 0);
 
     z80_add_label(&enc, "vstack_end");
 
-    z80_add_label(&enc, "str_newline"); z80_emit_b(&enc, 10); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_nil"); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'i'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_boolean"); z80_emit_b(&enc, 'b'); z80_emit_b(&enc, 'o'); z80_emit_b(&enc, 'o'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 'a'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_number"); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'u'); z80_emit_b(&enc, 'm'); z80_emit_b(&enc, 'b'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 'r'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_string"); z80_emit_b(&enc, 's'); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'r'); z80_emit_b(&enc, 'i'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'g'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_table"); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'a'); z80_emit_b(&enc, 'b'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_type_function"); z80_emit_b(&enc, 'f'); z80_emit_b(&enc, 'u'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'c'); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'i'); z80_emit_b(&enc, 'o'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_nil_value"); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'i'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_false_value"); z80_emit_b(&enc, 'f'); z80_emit_b(&enc, 'a'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 's'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_true_value"); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'r'); z80_emit_b(&enc, 'u'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_table_value"); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'a'); z80_emit_b(&enc, 'b'); z80_emit_b(&enc, 'l'); z80_emit_b(&enc, 'e'); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "str_function_value"); z80_emit_b(&enc, 'f'); z80_emit_b(&enc, 'u'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 'c'); z80_emit_b(&enc, 't'); z80_emit_b(&enc, 'i'); z80_emit_b(&enc, 'o'); z80_emit_b(&enc, 'n'); z80_emit_b(&enc, 0);
+    emit_string_object(&enc, "str_empty", "");
+    emit_string_object(&enc, "str_newline", "\n");
+    emit_string_object(&enc, "str_type_nil", "nil");
+    emit_string_object(&enc, "str_type_boolean", "boolean");
+    emit_string_object(&enc, "str_type_number", "number");
+    emit_string_object(&enc, "str_type_string", "string");
+    emit_string_object(&enc, "str_type_table", "table");
+    emit_string_object(&enc, "str_type_function", "function");
+    emit_string_object(&enc, "str_nil_value", "nil");
+    emit_string_object(&enc, "str_false_value", "false");
+    emit_string_object(&enc, "str_true_value", "true");
+    emit_string_object(&enc, "str_table_value", "table");
+    emit_string_object(&enc, "str_function_value", "function");
     z80_add_label(&enc, "num_buffer"); for(int i=0; i<16; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "num_buffer_end"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "tmp_len"); z80_emit_w(&enc, 0);
