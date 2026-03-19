@@ -22,111 +22,121 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
-.PHONY: all run check check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-mul-basic run-mul-basic check-le run-le check-le-false run-le-false check-le-negative run-le-negative check-le-mixed-negative-false run-le-mixed-negative-false check-gt run-gt check-gt-false run-gt-false check-gt-negative run-gt-negative check-gt-mixed-negative-false run-gt-mixed-negative-false check-ge run-ge check-ge-false run-ge-false check-ge-negative run-ge-negative check-ge-mixed-negative run-ge-mixed-negative check-lt-negative run-lt-negative check-lt-mixed-negative run-lt-mixed-negative check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-and-truthy run-and-truthy check-and-falsey run-and-falsey check-or-truthy run-or-truthy check-or-falsey run-or-falsey check-logic-precedence run-logic-precedence check-function-add run-function-add check-function-nested-calls run-function-nested-calls check-local-function run-local-function check-multiple-assignment run-multiple-assignment check-mixed-table-literal run-mixed-table-literal check-string-key-content run-string-key-content check-len-string run-len-string check-len-table run-len-table check-concat-basic run-concat-basic check-concat-content run-concat-content check-pow-basic run-pow-basic check-pow-assoc run-pow-assoc check-builtin-type run-builtin-type check-builtin-tostring run-builtin-tostring check-builtin-tonumber run-builtin-tonumber check-table-array-get run-table-array-get check-table-set-get run-table-set-get check-table-overwrite run-table-overwrite check-table-overwrite-to-table run-table-overwrite-to-table check-table-overwrite-to-number run-table-overwrite-to-number check-table-missing-nil run-table-missing-nil check-table-nested-get run-table-nested-get check-table-capacity run-table-capacity check-table-field-get run-table-field-get check-table-field-set run-table-field-set check-table-string-index-get run-table-string-index-get check-table-string-index-set run-table-string-index-set check-for-in-array run-for-in-array check-for-in-empty run-for-in-empty check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-repeat-until run-repeat-until check-repeat-local-shadow run-repeat-local-shadow check-for-count run-for-count check-for-step run-for-step check-for-negative-step run-for-negative-step check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
+SUITE_TESTS := \
+	program \
+	arith \
+	flow \
+	flow_false \
+	literal_true \
+	literal_false \
+	nil_branch \
+	not_false \
+	not_true \
+	neg \
+	div \
+	mod \
+	mul_basic \
+	le \
+	le_false \
+	lt_negative \
+	le_negative \
+	gt_negative \
+	ge_negative \
+	lt_mixed_negative \
+	le_mixed_negative_false \
+	gt_mixed_negative_false \
+	ge_mixed_negative \
+	gt \
+	gt_false \
+	ge \
+	ge_false \
+	eq \
+	eq_false \
+	ne \
+	ne_false \
+	mixed_eq \
+	mixed_eq_false \
+	and_truthy \
+	and_falsey \
+	or_truthy \
+	or_falsey \
+	logic_precedence \
+	function_add \
+	function_nested_calls \
+	local_function \
+	multiple_assignment \
+	mixed_table_literal \
+	string_key_content \
+	len_string \
+	len_table \
+	concat_basic \
+	concat_content \
+	pow_basic \
+	pow_assoc \
+	builtin_type \
+	builtin_tostring \
+	builtin_tonumber \
+	table_array_get \
+	table_set_get \
+	table_overwrite \
+	table_overwrite_to_table \
+	table_overwrite_to_number \
+	table_missing_nil \
+	table_nested_get \
+	table_capacity \
+	table_field_get \
+	table_field_set \
+	table_string_index_get \
+	table_string_index_set \
+	for_in_array \
+	for_in_empty \
+	else_taken \
+	else_skipped \
+	elseif_taken \
+	elseif_fallback \
+	else_local \
+	elseif_local \
+	branch_local_shadow_then \
+	branch_local_shadow_else \
+	nested_else_if \
+	nested_else_if_false \
+	nested_else_elseif \
+	nested_else_elseif_fallback \
+	elseif_chain_late \
+	elseif_chain_fallback \
+	nested_if \
+	nested_if_false \
+	while_count \
+	while_zero \
+	while_accumulate \
+	while_local_shadow \
+	repeat_until \
+	repeat_local_shadow \
+	for_count \
+	for_step \
+	for_negative_step \
+	local_mixed_eq \
+	local_mixed_eq_false \
+	local_update \
+	local_update_false \
+	both_arith_eq \
+	both_arith_eq_false
+
+SUITE_CHECK_TARGETS := $(addprefix check-,$(subst _,-,$(SUITE_TESTS)))
+
+.PHONY: all run check check-program run-program check-arith run-arith check-flow run-flow check-flow-false run-flow-false check-literal-true run-literal-true check-literal-false run-literal-false check-nil-branch run-nil-branch check-not-false run-not-false check-not-true run-not-true check-neg run-neg check-div run-div check-mod run-mod check-mul-basic run-mul-basic check-le run-le check-le-false run-le-false check-le-negative run-le-negative check-le-mixed-negative-false run-le-mixed-negative-false check-gt run-gt check-gt-false run-gt-false check-gt-negative run-gt-negative check-gt-mixed-negative-false run-gt-mixed-negative-false check-ge run-ge check-ge-false run-ge-false check-ge-negative run-ge-negative check-ge-mixed-negative run-ge-mixed-negative check-lt-negative run-lt-negative check-lt-mixed-negative run-lt-mixed-negative check-eq run-eq check-eq-false run-eq-false check-ne run-ne check-ne-false run-ne-false check-mixed-eq run-mixed-eq check-mixed-eq-false run-mixed-eq-false check-and-truthy run-and-truthy check-and-falsey run-and-falsey check-or-truthy run-or-truthy check-or-falsey run-or-falsey check-logic-precedence run-logic-precedence check-function-add run-function-add check-function-nested-calls run-function-nested-calls check-local-function run-local-function check-multiple-assignment run-multiple-assignment check-mixed-table-literal run-mixed-table-literal check-string-key-content run-string-key-content check-len-string run-len-string check-len-table run-len-table check-concat-basic run-concat-basic check-concat-content run-concat-content check-pow-basic run-pow-basic check-pow-assoc run-pow-assoc check-builtin-type run-builtin-type check-builtin-tostring run-builtin-tostring check-builtin-tonumber run-builtin-tonumber check-table-array-get run-table-array-get check-table-set-get run-table-set-get check-table-overwrite run-table-overwrite check-table-overwrite-to-table run-table-overwrite-to-table check-table-overwrite-to-number run-table-overwrite-to-number check-table-missing-nil run-table-missing-nil check-table-nested-get run-table-nested-get check-table-capacity run-table-capacity check-table-field-get run-table-field-get check-table-field-set run-table-field-set check-table-string-index-get run-table-string-index-get check-table-string-index-set run-table-string-index-set check-for-in-array run-for-in-array check-for-in-empty run-for-in-empty check-else-taken run-else-taken check-else-skipped run-else-skipped check-elseif-taken run-elseif-taken check-elseif-fallback run-elseif-fallback check-else-local run-else-local check-elseif-local run-elseif-local check-branch-local-shadow-then run-branch-local-shadow-then check-branch-local-shadow-else run-branch-local-shadow-else check-nested-else-if run-nested-else-if check-nested-else-if-false run-nested-else-if-false check-nested-else-elseif run-nested-else-elseif check-nested-else-elseif-fallback run-nested-else-elseif-fallback check-elseif-chain-late run-elseif-chain-late check-elseif-chain-fallback run-elseif-chain-fallback check-nested-if run-nested-if check-nested-if-false run-nested-if-false check-while-count run-while-count check-while-zero run-while-zero check-while-accumulate run-while-accumulate check-while-local-shadow run-while-local-shadow check-repeat-until run-repeat-until check-repeat-local-shadow run-repeat-local-shadow check-for-count run-for-count check-for-step run-for-step check-for-negative-step run-for-negative-step check-local-mixed-eq run-local-mixed-eq check-local-mixed-eq-false run-local-mixed-eq-false check-local-update run-local-update check-local-update-false run-local-update-false check-both-arith-eq run-both-arith-eq check-both-arith-eq-false run-both-arith-eq-false suite clean
 
 .SILENT: suite check run out $(STUB_BIN) $(STUB_IHX) $(PROGRAM_BIN) $(PROGRAM_IHX) $(COMMANDS) $(ACTUAL) clean
 
 all: suite
 
-suite:
+suite: $(SUITE_CHECK_TARGETS)
+
+check-program:
 	$(MAKE) check TEST=program
-	$(MAKE) check TEST=arith
-	$(MAKE) check TEST=flow
-	$(MAKE) check TEST=flow_false
-	$(MAKE) check TEST=literal_true
-	$(MAKE) check TEST=literal_false
-	$(MAKE) check TEST=nil_branch
-	$(MAKE) check TEST=not_false
-	$(MAKE) check TEST=not_true
-	$(MAKE) check TEST=neg
-	$(MAKE) check TEST=div
-	$(MAKE) check TEST=mod
-	$(MAKE) check TEST=mul_basic
-	$(MAKE) check TEST=le
-	$(MAKE) check TEST=le_false
-	$(MAKE) check TEST=lt_negative
-	$(MAKE) check TEST=le_negative
-	$(MAKE) check TEST=gt_negative
-	$(MAKE) check TEST=ge_negative
-	$(MAKE) check TEST=lt_mixed_negative
-	$(MAKE) check TEST=le_mixed_negative_false
-	$(MAKE) check TEST=gt_mixed_negative_false
-	$(MAKE) check TEST=ge_mixed_negative
-	$(MAKE) check TEST=gt
-	$(MAKE) check TEST=gt_false
-	$(MAKE) check TEST=ge
-	$(MAKE) check TEST=ge_false
-	$(MAKE) check TEST=eq
-	$(MAKE) check TEST=eq_false
-	$(MAKE) check TEST=ne
-	$(MAKE) check TEST=ne_false
-	$(MAKE) check TEST=mixed_eq
-	$(MAKE) check TEST=mixed_eq_false
-	$(MAKE) check TEST=and_truthy
-	$(MAKE) check TEST=and_falsey
-	$(MAKE) check TEST=or_truthy
-	$(MAKE) check TEST=or_falsey
-	$(MAKE) check TEST=logic_precedence
-	$(MAKE) check TEST=function_add
-	$(MAKE) check TEST=function_nested_calls
-	$(MAKE) check TEST=local_function
-	$(MAKE) check TEST=multiple_assignment
-	$(MAKE) check TEST=mixed_table_literal
-	$(MAKE) check TEST=string_key_content
-	$(MAKE) check TEST=len_string
-	$(MAKE) check TEST=len_table
-	$(MAKE) check TEST=concat_basic
-	$(MAKE) check TEST=concat_content
-	$(MAKE) check TEST=pow_basic
-	$(MAKE) check TEST=pow_assoc
-	$(MAKE) check TEST=builtin_type
-	$(MAKE) check TEST=builtin_tostring
-	$(MAKE) check TEST=builtin_tonumber
-	$(MAKE) check TEST=table_array_get
-	$(MAKE) check TEST=table_set_get
-	$(MAKE) check TEST=table_overwrite
-	$(MAKE) check TEST=table_overwrite_to_table
-	$(MAKE) check TEST=table_overwrite_to_number
-	$(MAKE) check TEST=table_missing_nil
-	$(MAKE) check TEST=table_nested_get
-	$(MAKE) check TEST=table_capacity
-	$(MAKE) check TEST=table_field_get
-	$(MAKE) check TEST=table_field_set
-	$(MAKE) check TEST=table_string_index_get
-	$(MAKE) check TEST=table_string_index_set
-	$(MAKE) check TEST=for_in_array
-	$(MAKE) check TEST=for_in_empty
-	$(MAKE) check TEST=else_taken
-	$(MAKE) check TEST=else_skipped
-	$(MAKE) check TEST=elseif_taken
-	$(MAKE) check TEST=elseif_fallback
-	$(MAKE) check TEST=else_local
-	$(MAKE) check TEST=elseif_local
-	$(MAKE) check TEST=branch_local_shadow_then
-	$(MAKE) check TEST=branch_local_shadow_else
-	$(MAKE) check TEST=nested_else_if
-	$(MAKE) check TEST=nested_else_if_false
-	$(MAKE) check TEST=nested_else_elseif
-	$(MAKE) check TEST=nested_else_elseif_fallback
-	$(MAKE) check TEST=elseif_chain_late
-	$(MAKE) check TEST=elseif_chain_fallback
-	$(MAKE) check TEST=nested_if
-	$(MAKE) check TEST=nested_if_false
-	$(MAKE) check TEST=while_count
-	$(MAKE) check TEST=while_zero
-	$(MAKE) check TEST=while_accumulate
-	$(MAKE) check TEST=while_local_shadow
-	$(MAKE) check TEST=repeat_until
-	$(MAKE) check TEST=repeat_local_shadow
-	$(MAKE) check TEST=for_count
-	$(MAKE) check TEST=for_step
-	$(MAKE) check TEST=for_negative_step
-	$(MAKE) check TEST=local_mixed_eq
-	$(MAKE) check TEST=local_mixed_eq_false
-	$(MAKE) check TEST=local_update
-	$(MAKE) check TEST=local_update_false
-	$(MAKE) check TEST=both_arith_eq
-	$(MAKE) check TEST=both_arith_eq_false
+
+run-program:
+	$(MAKE) run TEST=program
 
 check-arith:
 	$(MAKE) check TEST=arith
