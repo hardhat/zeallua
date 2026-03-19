@@ -27,6 +27,19 @@
 static uint8_t image[MAX_IMAGE_SIZE];
 static Z80Encoder enc;
 
+static bool find_label_addr(const Z80Encoder* e, const char* name, uint16_t* addr_out) {
+    uint16_t i;
+
+    for (i = 0; i < e->label_count; i++) {
+        if (strcmp(e->labels[i].name, name) == 0) {
+            *addr_out = e->labels[i].addr;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool write_all(zos_dev_t dev, const void* buf, uint16_t size) {
     const uint8_t* ptr = (const uint8_t*)buf;
 
@@ -203,6 +216,35 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     char label[32];
 
     z80_add_label(&enc, "_start");
+    z80_ld_rp_label(&enc, RP_HL, "bss_end");
+    z80_ld_rp_label(&enc, RP_DE, "bss_start");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "clear_bss_non_empty");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "clear_bss_done");
+    z80_add_label(&enc, "clear_bss_non_empty");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_rp_label(&enc, RP_HL, "bss_start");
+    z80_ld_rp_label(&enc, RP_DE, "bss_start");
+    z80_inc_rp(&enc, RP_DE);
+    z80_xor_a(&enc);
+    z80_ld_hl_a(&enc);
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "clear_bss_copy");
+    z80_ld_r_r(&enc, REG_A, REG_C);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "clear_bss_done");
+    z80_add_label(&enc, "clear_bss_copy");
+    z80_ldir(&enc);
+    z80_add_label(&enc, "clear_bss_done");
+
     z80_ld_rp_label(&enc, RP_HL, "heap_space");
     z80_ld_mem_hl_label(&enc, "heap_ptr");
     z80_ld_rp_label(&enc, RP_HL, "string_space");
@@ -1543,8 +1585,23 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
         z80_add_ref(&enc, pool_label, false, true);
     }
 
+    emit_string_object(&enc, "str_empty", "");
+    emit_string_object(&enc, "str_newline", "\n");
+    emit_string_object(&enc, "str_type_nil", "nil");
+    emit_string_object(&enc, "str_type_boolean", "boolean");
+    emit_string_object(&enc, "str_type_number", "number");
+    emit_string_object(&enc, "str_type_string", "string");
+    emit_string_object(&enc, "str_type_table", "table");
+    emit_string_object(&enc, "str_type_function", "function");
+    emit_string_object(&enc, "str_nil_value", "nil");
+    emit_string_object(&enc, "str_false_value", "false");
+    emit_string_object(&enc, "str_true_value", "true");
+    emit_string_object(&enc, "str_table_value", "table");
+    emit_string_object(&enc, "str_function_value", "function");
+
+    z80_add_label(&enc, "bss_start");
     z80_add_label(&enc, "global_vars");
-    for(int i=0; i<768; i++) z80_emit_b(&enc, 0);
+    for (i = 0; i < 768; i++) z80_emit_b(&enc, 0);
 
     z80_add_label(&enc, "call_frame_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "call_func_temp"); z80_emit_w(&enc, 0);
@@ -1578,46 +1635,38 @@ static void emit_compare_stack_and_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "table_val_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_val_type"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "table_entry_temp"); z80_emit_w(&enc, 0);
-    z80_add_label(&enc, "heap_space"); for(int i=0; i<TABLE_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "string_space"); for(int i=0; i<STRING_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "heap_space"); for (i = 0; i < TABLE_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "string_space"); for (i = 0; i < STRING_HEAP_BYTES; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "string_end");
-    z80_add_label(&enc, "callstack_space"); for(int i=0; i<CALL_STACK_BYTES; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "callstack_space"); for (i = 0; i < CALL_STACK_BYTES; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "callstack_end");
-    z80_add_label(&enc, "vstack_space"); for(int i=0; i<VSTACK_BYTES; i++) z80_emit_b(&enc, 0);
-
+    z80_add_label(&enc, "vstack_space"); for (i = 0; i < VSTACK_BYTES; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "vstack_end");
-
-    emit_string_object(&enc, "str_empty", "");
-    emit_string_object(&enc, "str_newline", "\n");
-    emit_string_object(&enc, "str_type_nil", "nil");
-    emit_string_object(&enc, "str_type_boolean", "boolean");
-    emit_string_object(&enc, "str_type_number", "number");
-    emit_string_object(&enc, "str_type_string", "string");
-    emit_string_object(&enc, "str_type_table", "table");
-    emit_string_object(&enc, "str_type_function", "function");
-    emit_string_object(&enc, "str_nil_value", "nil");
-    emit_string_object(&enc, "str_false_value", "false");
-    emit_string_object(&enc, "str_true_value", "true");
-    emit_string_object(&enc, "str_table_value", "table");
-    emit_string_object(&enc, "str_function_value", "function");
-    z80_add_label(&enc, "num_buffer"); for(int i=0; i<16; i++) z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "num_buffer"); for (i = 0; i < 16; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "num_buffer_end"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "tmp_len"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "bss_end");
 }
 
 static bool write_image_file(const char* out_filename) {
     zos_dev_t bin;
+    uint16_t bss_start_addr;
     uint16_t written;
     zos_err_t err;
 
     bin = open(out_filename, O_WRONLY | O_CREAT | O_TRUNC);
     if (bin < 0) return false;
 
-    written = enc.size;
+    if (!find_label_addr(&enc, "bss_start", &bss_start_addr)) {
+        close(bin);
+        return false;
+    }
+
+    written = bss_start_addr - enc.base_addr;
     err = write(bin, image, &written);
     close(bin);
 
-    return err == ERR_SUCCESS && written == enc.size;
+    return err == ERR_SUCCESS && written == (uint16_t)(bss_start_addr - enc.base_addr);
 }
 
 bool codegen_generate(CompiledChunk* chunk, const char* out_filename) {

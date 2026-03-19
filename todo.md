@@ -39,6 +39,7 @@
 - [x] Add semantic ucsim regression coverage for arithmetic, comparisons, branches, locals, loops, tables, string-key access, and minimal `for ... in`.
 - [x] Implement short-circuit logic operators (`AND`, `OR`).
 - [x] Implement basic function definitions, calls, and returns (without closures).
+- [x] Implement trailing BSS emission with startup zeroing for generated binaries.
 - [ ] Test on actual Zeal-8-bit-OS hardware.
 
 ### Phase 6: Coverage Gaps & Remaining Runtime Work [PLANNED]

@@ -76,6 +76,7 @@ void z80_dec_r(Z80Encoder* e, Register r);
 void z80_inc_rp(Z80Encoder* e, RegPair rp);
 void z80_dec_rp(Z80Encoder* e, RegPair rp);
 void z80_add_hl_rp(Z80Encoder* e, RegPair rp);
+void z80_sbc_hl_rp(Z80Encoder* e, RegPair rp);
 void z80_add_a_r(Z80Encoder* e, Register r);
 void z80_adc_a_r(Z80Encoder* e, Register r);
 void z80_add_a_n(Z80Encoder* e, uint8_t n);
@@ -93,6 +94,7 @@ void z80_call(Z80Encoder* e, uint16_t addr);
 void z80_rst(Z80Encoder* e, uint8_t vec);
 void z80_ex_de_hl(Z80Encoder* e);
 void z80_djnz(Z80Encoder* e, int8_t offset);
+void z80_ldir(Z80Encoder* e);
 
 // Label variations (requested for cleaner syntax)
 void z80_jp_label(Z80Encoder* e, const char* label);

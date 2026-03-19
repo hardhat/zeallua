@@ -12,6 +12,7 @@ STUB_BIN := out/ucsim_stub.bin
 STUB_IHX := out/ucsim_stub.ihx
 PROGRAM_LUA := $(TEST).lua
 PROGRAM_BIN := out/$(TEST).bin
+PROGRAM_SIM_BIN := out/$(TEST).sim.bin
 PROGRAM_IHX := out/$(TEST).ihx
 PROGRAM_SYM := out/$(TEST).sym
 COMMANDS := out/$(TEST).commands.txt
@@ -127,7 +128,7 @@ SUITE_RUN_TARGETS := $(addprefix run-,$(subst _,-,$(SUITE_TESTS)))
 
 .PHONY: all run check suite clean FORCE
 
-.SILENT: suite check run out $(STUB_BIN) $(STUB_IHX) $(PROGRAM_BIN) $(PROGRAM_IHX) $(COMMANDS) $(ACTUAL) clean
+.SILENT: suite check run out $(STUB_BIN) $(STUB_IHX) $(PROGRAM_BIN) $(PROGRAM_SIM_BIN) $(PROGRAM_IHX) $(COMMANDS) $(ACTUAL) clean
 
 all: suite
 
@@ -164,16 +165,33 @@ $(STUB_IHX): $(STUB_BIN)
 $(PROGRAM_BIN): $(PROGRAM_LUA) $(HOST_COMPILER) | out
 	$(HOST_COMPILER) $< $@
 
-$(PROGRAM_IHX): $(PROGRAM_BIN)
+$(PROGRAM_SIM_BIN): $(PROGRAM_BIN) $(PROGRAM_SYM)
+	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	if [ -n "$$bss_end_hex" ]; then \
+		size_bytes=$$((0x$${bss_end_hex#0x} - 0x4000)); \
+	else \
+		size_bytes=$$(stat -c '%s' $<); \
+	fi; \
+	cp $< $@; \
+	truncate -s $$size_bytes $@
+
+$(PROGRAM_IHX): $(PROGRAM_SIM_BIN)
 	$(OBJCOPY) -I binary -O ihex --change-addresses 0x4000 $< $@
 	grep -vi '^:..00000[35]' $@ > $@.tmp
 	mv $@.tmp $@
 
-$(COMMANDS): $(PROGRAM_IHX)
+$(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM)
 	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	bss_start_hex=$$(awk '/^bss_start[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	if [ -n "$$bss_start_hex" ] && [ -n "$$bss_end_hex" ]; then \
+		step_count=$$((5000 + 10 * (0x$${bss_end_hex#0x} - 0x$${bss_start_hex#0x}))); \
+	else \
+		step_count=5000; \
+	fi; \
 	addr_no_prefix=$${addr_hex#0x}; \
 	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + 6))); \
-	printf 'step 5000\ndump /h rom %s %s\nquit\n' "$$addr_hex" "$$end_hex" > $@
+	printf 'step %s\ndump /h rom %s %s\nquit\n' "$$step_count" "$$addr_hex" "$$end_hex" > $@
 
 $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS)
 	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \

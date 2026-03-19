@@ -121,6 +121,10 @@ void z80_inc_rp(Z80Encoder* e, RegPair rp) { z80_emit_b(e, 0x03 | (rp << 4)); }
 void z80_dec_rp(Z80Encoder* e, RegPair rp) { z80_emit_b(e, 0x0B | (rp << 4)); }
 
 void z80_add_hl_rp(Z80Encoder* e, RegPair rp) { z80_emit_b(e, 0x09 | (rp << 4)); }
+void z80_sbc_hl_rp(Z80Encoder* e, RegPair rp) {
+    z80_emit_b(e, 0xED);
+    z80_emit_b(e, 0x42 | (rp << 4));
+}
 
 void z80_add_a_r(Z80Encoder* e, Register r) { z80_emit_b(e, 0x80 | r); }
 void z80_adc_a_r(Z80Encoder* e, Register r) { z80_emit_b(e, 0x88 | r); }
@@ -167,6 +171,11 @@ void z80_ex_de_hl(Z80Encoder* e) { z80_emit_b(e, 0xEB); }
 void z80_djnz(Z80Encoder* e, int8_t offset) {
     z80_emit_b(e, 0x10);
     z80_emit_b(e, (uint8_t)offset);
+}
+
+void z80_ldir(Z80Encoder* e) {
+    z80_emit_b(e, 0xED);
+    z80_emit_b(e, 0xB0);
 }
 
 // Label variations
