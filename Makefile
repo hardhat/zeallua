@@ -1,7 +1,7 @@
 ZOS_PATH ?= ../Zeal-8-bit-OS
 ZVB_SDK_PATH ?= ../Zeal-VideoBoard-SDK
 BIN=bin/zeallua.bin
-OBJ=obj/main.rel obj/lexer.rel obj/token.rel obj/parser.rel obj/ast.rel obj/compiler.rel obj/bytecode.rel obj/codegen.rel obj/z80_encoder.rel obj/interpreter.rel
+OBJ=obj/main.rel obj/lexer.rel obj/token.rel obj/parser.rel obj/ast.rel obj/compiler.rel obj/bytecode.rel obj/codegen.rel obj/codegen_emit_ops.rel obj/codegen_emit_runtime.rel obj/z80_encoder.rel obj/interpreter.rel
 HOST_MAKEFILE=Makefile.linux
 CC=sdcc
 CFLAGS=-mz80 --std-c2x -c -I $(ZOS_PATH)/kernel_headers/sdcc/include/ -I $(ZVB_SDK_PATH)/include --codeseg TEXT --debug

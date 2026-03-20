@@ -10,6 +10,8 @@ HOST_SRCS := \
 	src/compiler.c \
 	src/bytecode.c \
 	src/codegen.c \
+	src/codegen_emit_ops.c \
+	src/codegen_emit_runtime.c \
 	src/interpreter.c \
 	src/z80_encoder.c
 
