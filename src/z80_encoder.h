@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MAX_LABELS 256
+#define MAX_LABELS 512
 #define MAX_REFS 1024
 
 typedef enum {

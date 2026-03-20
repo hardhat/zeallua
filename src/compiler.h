@@ -9,6 +9,7 @@
 #define MAX_FUNCTIONS 64
 #define MAX_GLOBALS 256
 #define MAX_LOCALS 256
+#define MAX_UPVALUES 64
 
 typedef enum {
     CONST_NUMBER,
@@ -26,6 +27,11 @@ typedef struct {
 } Constant;
 
 typedef struct {
+    bool from_local;
+    uint8_t index;
+} UpvalueDesc;
+
+typedef struct {
     const char* name;
     uint8_t code[MAX_CODE_SIZE];
     uint16_t code_len;
@@ -33,6 +39,13 @@ typedef struct {
     uint16_t const_count;
     const char* locals[MAX_LOCALS];
     uint16_t local_count;
+    uint8_t param_count;
+    uint8_t initial_local_count;
+    bool local_is_captured[MAX_LOCALS];
+    uint8_t local_env_slot[MAX_LOCALS];
+    uint8_t env_local_count;
+    UpvalueDesc upvalues[MAX_UPVALUES];
+    uint8_t upvalue_count;
 } BytecodeFunction;
 
 typedef struct {

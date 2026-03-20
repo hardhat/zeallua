@@ -19,6 +19,10 @@ typedef enum {
     OP_SETLOCAL = 0x21,
     OP_GETGLOBAL = 0x22,
     OP_SETGLOBAL = 0x23,
+    OP_GETUPVAL = 0x24,
+    OP_SETUPVAL = 0x25,
+    OP_GETCAPTURED = 0x26,
+    OP_SETCAPTURED = 0x27,
 
     OP_NEWTABLE = 0x30,
     OP_GETTABLE = 0x31,

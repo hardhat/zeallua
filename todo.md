@@ -61,10 +61,10 @@
 	- [x] Phase A: add concat-focused regressions.
 - [x] Implement length operator (`#`) in the VM/runtime.
 - [x] Implement built-ins `type`, `tostring`, and `tonumber`.
-- [ ] Implement closures and upvalue capture for nested functions.
+- [x] Implement closures and upvalue capture for nested functions.
 - [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
 
 ## Next Steps
 1. Decide whether stdout-oriented `print(...)` regression coverage is still needed, and add it if so.
-2. Implement closures and upvalue capture for nested functions.
+2. Decide whether to remove or downgrade unsupported feature claims in `README.md` until the remaining gaps are resolved.
 3. Test on actual Zeal-8-bit-OS hardware.

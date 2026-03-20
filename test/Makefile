@@ -64,6 +64,9 @@ SUITE_TESTS := \
 	logic_precedence \
 	function_add \
 	function_nested_calls \
+	closure_basic \
+	closure_mutation \
+	closure_nested_upvalue \
 	local_function \
 	multiple_assignment \
 	mixed_table_literal \
