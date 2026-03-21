@@ -248,7 +248,7 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_ld_mem_hl_label(&enc, "csp_ptr");
     z80_ld_rp_label(&enc, RP_HL, "bytecode_main");
     z80_ld_mem_hl_label(&enc, "pc_ptr");
-    z80_jr_label(&enc, "vm_loop");
+    z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "pc_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "vsp_ptr"); z80_emit_w(&enc, 0);
