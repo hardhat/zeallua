@@ -2,9 +2,9 @@
 
 static void emit_stack_and_closure_ops(void) {
     z80_add_label(&enc, "vm_halt");
-    z80_ld_r_n(&enc, REG_A, 0);
-    z80_xor_a(&enc); z80_ld_r_r(&enc, REG_L, REG_A); z80_ld_r_r(&enc, REG_H, REG_A);
-    z80_rst(&enc, 0x08);
+    z80_ld_r_n(&enc, REG_H, 0);     // Return code success.
+    z80_ld_r_n(&enc, REG_L, 15);    // Zeal Exit
+    z80_rst(&enc, 0x08);            // Syscall
 
     z80_add_label(&enc, "op_pop"); z80_call_label(&enc, "vstack_pop"); z80_jp_label(&enc, "vm_loop");
 
@@ -373,12 +373,10 @@ static void emit_print_and_string_ops(void) {
     z80_push(&enc, RP_HL); z80_ld_r_n(&enc, REG_B, 0);
     z80_add_label(&enc, "ps_len"); z80_ld_a_hl(&enc); z80_or_a(&enc); z80_jr_cc_label(&enc, CC_Z, "ps_out");
     z80_inc_rp(&enc, RP_HL); z80_inc_r(&enc, REG_B); z80_jr_label(&enc, "ps_len");
-    z80_add_label(&enc, "ps_out"); z80_pop(&enc, RP_DE);
-    z80_ld_r_r(&enc, REG_C, REG_B); z80_ld_r_n(&enc, REG_B, 0); z80_push(&enc, RP_BC); z80_pop(&enc, RP_HL);
-    z80_ld_mem_hl_label(&enc, "tmp_len");
-    z80_ld_rp_label(&enc, RP_HL, "tmp_len");
-    z80_ld_r_n(&enc, REG_B, 0);
-    z80_ld_r_n(&enc, REG_A, 2);
+    z80_add_label(&enc, "ps_out"); 
+    z80_pop(&enc, RP_DE);
+    z80_ld_r_r(&enc, REG_C, REG_B); z80_ld_r_n(&enc, REG_B, 0); 
+    z80_ld_rp_nn(&enc, RP_HL, 1);  // H=STDOUT=0, L=1 ZEAL SYSCALL WRITE
     z80_rst(&enc, 0x08); z80_ret(&enc);
 
     z80_add_label(&enc, "print_str");
@@ -387,17 +385,13 @@ static void emit_print_and_string_ops(void) {
     z80_ld_r_r(&enc, REG_B, REG_M);
     z80_inc_rp(&enc, RP_HL);
     z80_ex_de_hl(&enc);
-    z80_push(&enc, RP_BC); z80_pop(&enc, RP_HL);
-    z80_ld_mem_hl_label(&enc, "tmp_len");
-    z80_ld_rp_label(&enc, RP_HL, "tmp_len");
-    z80_ld_r_n(&enc, REG_B, 0);
-    z80_ld_r_n(&enc, REG_A, 2);
+    z80_ld_rp_nn(&enc, RP_HL, 1);  // H=STDOUT=0, L=1 ZEAL SYSCALL WRITE
     z80_rst(&enc, 0x08); z80_ret(&enc);
 
     z80_add_label(&enc, "div16_8");
     z80_xor_a(&enc); z80_ld_r_n(&enc, REG_B, 16);
     z80_add_label(&enc, "div_l"); z80_add_hl_rp(&enc, RP_HL); z80_emit_b(&enc, 0x17);
-    z80_cp_a_n(&enc, 10); z80_jr_cc_label(&enc, CC_NC, "div_s");
+    z80_cp_a_n(&enc, 10); z80_jr_cc_label(&enc, CC_C, "div_s");
     z80_sub_a_n(&enc, 10); z80_inc_r(&enc, REG_L);
     z80_add_label(&enc, "div_s"); z80_djnz_label(&enc, "div_l"); z80_ret(&enc);
 
