@@ -6,21 +6,18 @@
 
     defs 0x0008 - $, 0
 _syscall:
-    cp 0            ; exit
+    ld a, l
+    cp 15           ; exit(retval in H)
     jr z, _sys_exit
-    cp 2            ; write(dev=B, buf=DE, size_ptr=HL)
+    cp 1            ; write(dev=H, buf=DE, size=BC)
     jr z, _sys_write
     xor a
     ret
 
 _sys_write:
-    ld a, b         ; Only capture stdout
+    ld a, h         ; Only capture stdout
     cp 0
     jr nz, _sys_write_done
-
-    ld c, (hl)
-    inc hl
-    ld b, (hl)
 
 _sys_write_loop:
     ld a, c
