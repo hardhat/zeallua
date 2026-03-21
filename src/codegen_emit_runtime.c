@@ -306,19 +306,19 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
         }
     }
 
-    emit_string_object(&enc, "str_empty", "");
-    emit_string_object(&enc, "str_newline", "\n");
-    emit_string_object(&enc, "str_type_nil", "nil");
-    emit_string_object(&enc, "str_type_boolean", "boolean");
-    emit_string_object(&enc, "str_type_number", "number");
-    emit_string_object(&enc, "str_type_string", "string");
-    emit_string_object(&enc, "str_type_table", "table");
-    emit_string_object(&enc, "str_type_function", "function");
-    emit_string_object(&enc, "str_nil_value", "nil");
-    emit_string_object(&enc, "str_false_value", "false");
-    emit_string_object(&enc, "str_true_value", "true");
-    emit_string_object(&enc, "str_table_value", "table");
-    emit_string_object(&enc, "str_function_value", "function");
+    emit_string_object("str_empty", "");
+    emit_string_object("str_newline", "\n");
+    emit_string_object("str_type_nil", "nil");
+    emit_string_object("str_type_boolean", "boolean");
+    emit_string_object("str_type_number", "number");
+    emit_string_object("str_type_string", "string");
+    emit_string_object("str_type_table", "table");
+    emit_string_object("str_type_function", "function");
+    emit_string_object("str_nil_value", "nil");
+    emit_string_object("str_false_value", "false");
+    emit_string_object("str_true_value", "true");
+    emit_string_object("str_table_value", "table");
+    emit_string_object("str_function_value", "function");
 
     z80_add_label(&enc, "bss_start");
     z80_add_label(&enc, "global_vars");

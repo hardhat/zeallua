@@ -9,7 +9,6 @@
 
 #define MAX_IMAGE_SIZE 16384
 static uint8_t image[MAX_IMAGE_SIZE];
-Z80Encoder enc;
 
 static bool find_label_addr(const Z80Encoder* e, const char* name, uint16_t* addr_out) {
     uint16_t i;
@@ -100,16 +99,16 @@ void make_two_index_label(char* dst, uint16_t cap, const char* prefix, uint16_t 
     append_uint16(dst, &len, cap, second);
 }
 
-void emit_string_object(Z80Encoder* e, const char* label, const char* text) {
+void emit_string_object(const char* label, const char* text) {
     uint16_t len = (uint16_t)strlen(text);
 
-    z80_add_label(e, label);
-    z80_emit_w(e, len);
+    z80_add_label(label);
+    z80_emit_w(len);
     while (*text) {
-        z80_emit_b(e, (uint8_t)*text);
+        z80_emit_b((uint8_t)*text);
         text++;
     }
-    z80_emit_b(e, 0);
+    z80_emit_b(0);
 }
 
 void emit_function_constant_pool(const char* pool_label, const char* string_prefix, BytecodeFunction* func) {
@@ -140,7 +139,7 @@ void emit_function_constant_pool(const char* pool_label, const char* string_pref
         Constant* c = &func->constants[i];
         if (c->type == CONST_STRING) {
             make_indexed_label(label, sizeof(label), string_prefix, i);
-            emit_string_object(&enc, label, c->data.string);
+            emit_string_object(label, c->data.string);
         }
     }
 }
@@ -1490,7 +1489,7 @@ static bool write_image_file(const char* out_filename) {
 }
 
 bool codegen_generate(CompiledChunk* chunk, const char* out_filename) {
-    z80_init(&enc, image, MAX_IMAGE_SIZE, 0x4000);
+    z80_init(image, MAX_IMAGE_SIZE, 0x4000);
     memset(image, 0, MAX_IMAGE_SIZE);
 
     emit_entry_and_dispatch(chunk);
@@ -1498,7 +1497,7 @@ bool codegen_generate(CompiledChunk* chunk, const char* out_filename) {
     emit_scope_ops();
     emit_compare_stack_and_data(chunk);
 
-    z80_resolve_refs(&enc);
+    z80_resolve_refs();
 
     if (!export_symbols(&enc, out_filename)) {
         return false;
