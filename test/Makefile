@@ -23,6 +23,16 @@ else
 EXPECTED := $(TEST).expected.txt
 endif
 
+DUMP_SYMBOL ?= global_vars
+DUMP_ADDR ?=
+DUMP_BYTES ?= 7
+DUMP_SPACE ?= rom
+
+ifeq ($(TEST),print_stdout)
+DUMP_ADDR := 0x0200
+DUMP_BYTES := 8
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -68,6 +78,7 @@ SUITE_TESTS := \
 	closure_mutation \
 	closure_nested_upvalue \
 	local_function \
+	print_stdout \
 	multiple_assignment \
 	mixed_table_literal \
 	string_key_content \
@@ -183,8 +194,12 @@ $(PROGRAM_IHX): $(PROGRAM_SIM_BIN)
 	grep -vi '^:..00000[35]' $@ > $@.tmp
 	mv $@.tmp $@
 
-$(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM)
-	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+$(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
+	if [ -n "$(DUMP_ADDR)" ]; then \
+		addr_hex=$(DUMP_ADDR); \
+	else \
+		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	fi; \
 	bss_start_hex=$$(awk '/^bss_start[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	if [ -n "$$bss_start_hex" ] && [ -n "$$bss_end_hex" ]; then \
@@ -193,11 +208,15 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM)
 		step_count=5000; \
 	fi; \
 	addr_no_prefix=$${addr_hex#0x}; \
-	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + 6))); \
-	printf 'step %s\ndump /h rom %s %s\nquit\n' "$$step_count" "$$addr_hex" "$$end_hex" > $@
+	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + $(DUMP_BYTES) - 1))); \
+	printf 'step %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$step_count" "$$addr_hex" "$$end_hex" > $@
 
-$(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS)
-	addr_hex=$$(awk '/^global_vars[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+$(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
+	if [ -n "$(DUMP_ADDR)" ]; then \
+		addr_hex=$(DUMP_ADDR); \
+	else \
+		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+	fi; \
 	addr_lc=$$(printf '%s' "$$addr_hex" | tr 'A-F' 'a-f'); \
 	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < $(COMMANDS) | grep "^$$addr_lc " | sed 's/^0x[0-9a-f]\{4\} //' > $@
 
