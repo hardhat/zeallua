@@ -191,6 +191,7 @@ SUITE_TESTS := \
 	table_field_set \
 	table_string_index_get \
 	table_string_index_set \
+	table_mark_roots_counter \
 	table_reclaim_queue_smoke \
 	table_reclaim_queue_overflow \
 	table_example_core \

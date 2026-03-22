@@ -1369,6 +1369,110 @@ static void emit_table_ops(void) {
     z80_ld_mem_hl_label(&enc, "free_table_list");   /* free_table_list = HL */
     z80_ret(&enc);
 
+    /* Mark byte is stored in table header byte 1.
+     * Header layout: [0]=entry_count, [1]=gc_mark, [2]=capacity, [3]=reserved */
+    z80_add_label(&enc, "mark_table_reachable");  /* HL = table ptr */
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_reachable_nonzero");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_reachable_done");
+    z80_add_label(&enc, "mark_table_reachable_nonzero");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_reachable_done");
+    z80_ld_r_n(&enc, REG_A, 1);
+    z80_ld_hl_a(&enc);
+    z80_ld_hl_mem_label(&enc, "gc_mark_table_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_mark_table_count");
+    z80_add_label(&enc, "mark_table_reachable_done");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_roots_globals");
+    z80_ld_rp_label(&enc, RP_HL, "global_vars");
+    z80_ld_r_n(&enc, REG_B, 0); /* 256 slots */
+    z80_add_label(&enc, "mark_table_roots_globals_loop");
+    z80_push(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_globals_next");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_push(&enc, RP_BC);
+    z80_call_label(&enc, "mark_table_reachable");
+    z80_pop(&enc, RP_BC);
+    z80_add_label(&enc, "mark_table_roots_globals_next");
+    z80_pop(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_djnz_label(&enc, "mark_table_roots_globals_loop");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_roots_vstack");
+    z80_ld_hl_mem_label(&enc, "vsp_ptr");
+    z80_add_label(&enc, "mark_table_roots_vstack_loop");
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_DE, "vstack_end");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_vstack_done");
+    z80_pop(&enc, RP_HL);
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_vstack_next");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "mark_table_reachable");
+    z80_add_label(&enc, "mark_table_roots_vstack_next");
+    z80_pop(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_jr_label(&enc, "mark_table_roots_vstack_loop");
+
+    z80_add_label(&enc, "mark_table_roots_vstack_done");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_roots");
+    z80_call_label(&enc, "mark_table_roots_globals");
+    z80_call_label(&enc, "mark_table_roots_vstack");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "table_is_marked_clear"); /* HL = table ptr, A=1 if marked else 0 */
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "table_is_marked_clear_nonzero");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "table_is_marked_clear_unmarked");
+    z80_add_label(&enc, "table_is_marked_clear_nonzero");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "table_is_marked_clear_unmarked");
+    z80_xor_a(&enc);
+    z80_ld_hl_a(&enc);
+    z80_ld_r_n(&enc, REG_A, 1);
+    z80_ret(&enc);
+    z80_add_label(&enc, "table_is_marked_clear_unmarked");
+    z80_xor_a(&enc);
+    z80_ret(&enc);
+
     /* Queue a table pointer for deferred reclaim. This is non-intrusive:
      * the table object is not modified until a future mark phase proves it
      * unreachable and calls gc_sweep_deferred_tables. Input: HL=table ptr. */
@@ -1416,6 +1520,7 @@ static void emit_table_ops(void) {
     z80_ld_a_hl(&enc);
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+    z80_call_label(&enc, "mark_table_roots");
 
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
     z80_ld_a_hl(&enc);
@@ -1450,7 +1555,15 @@ static void emit_table_ops(void) {
     z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_store_head");
 
     z80_add_label(&enc, "gc_sweep_deferred_tables_has_ptr");
+    z80_push(&enc, RP_HL);
+    z80_call_label(&enc, "table_is_marked_clear");
+    z80_pop(&enc, RP_HL);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "gc_sweep_deferred_tables_store_head");
     z80_call_label(&enc, "free_table_object");
+    z80_ld_hl_mem_label(&enc, "gc_sweep_table_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_sweep_table_count");
 
     z80_add_label(&enc, "gc_sweep_deferred_tables_store_head");
     z80_ld_r_r(&enc, REG_A, REG_B);
