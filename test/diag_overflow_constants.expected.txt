@@ -1,0 +1,1 @@
+diag_overflow_constants.lua:1:1431: error: Too many constants

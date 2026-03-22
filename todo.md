@@ -92,5 +92,8 @@
 - [x] Add `line` and `column` to `Expr` AST nodes in `src/ast.h`; stamp in parser.
 - [x] Add `line` and `column` to `Stmt` AST nodes in `src/ast.h`; stamp in parser.
 - [x] Route compiler-stage failures through `compiler_fail` with nearest statement position.
-- [ ] Add golden error tests for compile-time failures (e.g. too many locals, constant overflow).
+- [x] Add golden error tests for compile-time failures (e.g. too many locals, constant overflow).
+	- [x] Add `diag_overflow_functions` golden for `Too many functions` compiler limit.
+	- [x] Add `diag_overflow_constants` golden for `Too many constants` compiler limit.
+	- [x] Add `diag_overflow_globals` golden for `Too many globals` compiler limit.
 

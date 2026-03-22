@@ -171,7 +171,10 @@ DIAG_TESTS := \
 	diag_missing_end \
 	diag_expected_then \
 	diag_expected_do \
-	diag_expected_expr
+	diag_expected_expr \
+	diag_overflow_constants \
+	diag_overflow_globals \
+	diag_overflow_functions
 
 # check-diag-<name> targets: strip the diag_ prefix, convert _ to - for target names
 DIAG_SUITE_CHECK_TARGETS := $(addprefix check-diag-,$(subst _,-,$(patsubst diag_%,%,$(DIAG_TESTS))))

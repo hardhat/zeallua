@@ -1,0 +1,1 @@
+diag_overflow_globals.lua:1:1687: error: Too many globals

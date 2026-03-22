@@ -6,8 +6,8 @@
 #include <stdbool.h>
 
 // Max pool sizes for compiler memory allocation
-#define AST_POOL_SIZE 8192
-#define STR_POOL_SIZE 2048
+#define AST_POOL_SIZE 32768
+#define STR_POOL_SIZE 8192
 
 void ast_reset(void);
 void* ast_alloc(uint16_t size);
