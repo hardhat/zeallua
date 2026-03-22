@@ -97,6 +97,11 @@ ifeq ($(TEST),builtin_open_missing)
 DUMP_BYTES := 4
 endif
 
+ifeq ($(TEST),table_reclaim_queue_smoke)
+DUMP_SYMBOL := pending_table_reclaim_tail
+DUMP_BYTES := 1
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -181,6 +186,7 @@ SUITE_TESTS := \
 	table_field_set \
 	table_string_index_get \
 	table_string_index_set \
+	table_reclaim_queue_smoke \
 	table_example_core \
 	for_in_array \
 	for_in_empty \

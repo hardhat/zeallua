@@ -6,7 +6,13 @@ static void emit_stack_and_closure_ops(void) {
     z80_ld_r_n(&enc, REG_L, 15);    // Zeal Exit
     z80_rst(&enc, 0x08);            // Syscall
 
-    z80_add_label(&enc, "op_pop"); z80_call_label(&enc, "vstack_pop"); z80_jp_label(&enc, "vm_loop");
+    z80_add_label(&enc, "op_pop");
+    z80_call_label(&enc, "vstack_pop");
+    z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_NZ, "op_pop_done");
+    z80_call_label(&enc, "queue_table_reclaim_candidate");
+    z80_add_label(&enc, "op_pop_done");
+    z80_jp_label(&enc, "vm_loop");
 
     z80_add_label(&enc, "op_dup");
     z80_call_label(&enc, "vstack_pop");
