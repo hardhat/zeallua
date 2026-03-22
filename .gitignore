@@ -10,3 +10,5 @@ img/*.zts.zx0
 .vscode/
 test/out/
 /zeallua_host
+examples/*.sym
+examples/*.bin

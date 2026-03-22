@@ -270,11 +270,61 @@ static void emit_stack_and_closure_ops(void) {
     z80_pop(&enc, RP_HL);
     z80_pop(&enc, RP_HL);
     z80_add_label(&enc, "alloc_runtime_space_fail");
+    z80_ld_hl_mem_label(&enc, "alloc_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_fail_count");
+    z80_ld_hl_mem_label(&enc, "alloc_closure_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_closure_fail_count");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ret(&enc);
     z80_add_label(&enc, "alloc_runtime_space_ok");
     z80_pop(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "closure_ptr");
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "alloc_total_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_total_count");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "note_alloc_addr");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "note_alloc_addr");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "gc_high_watermark");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_C, "note_alloc_addr_check_low");
+    z80_jr_cc_label(&enc, CC_Z, "note_alloc_addr_check_low");
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_high_watermark");
+
+    z80_add_label(&enc, "note_alloc_addr_check_low");
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "gc_low_watermark");
+    z80_ld_r_r(&enc, REG_A, REG_D);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "note_alloc_addr_low_has_value");
+    z80_ld_r_r(&enc, REG_A, REG_E);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "note_alloc_addr_low_has_value");
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_low_watermark");
+    z80_jr_label(&enc, "note_alloc_addr_done");
+
+    z80_add_label(&enc, "note_alloc_addr_low_has_value");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_NC, "note_alloc_addr_done");
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_low_watermark");
+
+    z80_add_label(&enc, "note_alloc_addr_done");
     z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
@@ -614,6 +664,14 @@ static void emit_print_and_string_ops(void) {
     z80_ld_mem_hl_label(&enc, "string_ptr");
     z80_pop(&enc, RP_DE);
     z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_DE);
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "alloc_total_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_total_count");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "note_alloc_addr");
+    z80_pop(&enc, RP_DE);
     z80_ret(&enc);
     z80_add_label(&enc, "alloc_string_space_empty");
     z80_ld_hl_mem_label(&enc, "alloc_fail_count");
@@ -1291,6 +1349,7 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "alloc_total_count");
     z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "note_alloc_addr");
     z80_ret(&enc);
 
     z80_add_label(&enc, "op_newtable");

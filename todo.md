@@ -145,14 +145,14 @@
 - [ ] Document the supported Zeal-specific Lua API, especially what is intentionally non-standard versus Lua 5.1.
 - [ ] Add a focused test matrix for host, emulator, and real hardware so syscall-backed features can be verified independently from the compiler pipeline.
 
-## Phase 8: Runtime Memory Modernization [PLANNED]
+## Phase 8: Runtime Memory Modernization [IN PROGRESS]
 
 ### Scope (Approved)
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
-- [x] Step 2: dynamic/reusable strings.
-- [x] Step 3: dynamic/reusable tables.
-- [x] Step 4: lightweight non-moving mark/sweep GC.
-- [x] Step 5: OOM and allocator diagnostics.
+- [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
+- [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free/recycle path still pending)
+- [ ] Step 4: lightweight non-moving mark/sweep GC.
+- [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + richer diagnostics in progress)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
 ### Concrete 48K Working-RAM Budget Target
@@ -171,8 +171,8 @@
 
 ### Implementation Plan (before banked SRAM)
 - [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
-- [ ] Replace monotonic table and string allocation with free-list backed allocators.
+- [ ] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
 - [ ] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free).
-- [ ] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators.
+- [~] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators. (allocator counters and watermark symbols are present; runtime updates being wired)
