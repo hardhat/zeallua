@@ -151,7 +151,7 @@
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
 - [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop now stages table reclaim candidates; safe reclaim still pending mark/reachability)
-- [ ] Step 4: lightweight non-moving mark/sweep GC. (table mark-bit support added; root scan now covers globals, value stack, active frame locals, current_env cells, and current_closure captured cells; sweep remains gated by gc_sweep_enabled while broader reachability work continues)
+- [ ] Step 4: lightweight non-moving mark/sweep GC. (table mark-bit support added; root scan now covers globals, value stack, active frame locals, current_env cells, and current_closure captured cells; deterministic cycle prep now clears table marks + resets mark/sweep counters before root marking; sweep remains gated by gc_sweep_enabled)
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table counters added)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
@@ -174,6 +174,6 @@
 - [ ] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
-- [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure)
+- [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure; cycle now clears stale marks before mark phase)
 - [ ] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free).
 - [~] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators. (allocator counters and watermark symbols are present; runtime updates being wired)

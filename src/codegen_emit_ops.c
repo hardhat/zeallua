@@ -1610,6 +1610,29 @@ static void emit_table_ops(void) {
     z80_xor_a(&enc);
     z80_ret(&enc);
 
+    z80_add_label(&enc, "clear_table_marks");
+    z80_ld_rp_label(&enc, RP_HL, "heap_space");
+    z80_add_label(&enc, "clear_table_marks_loop");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "heap_ptr");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_Z, "clear_table_marks_done");
+    z80_jr_cc_label(&enc, CC_NC, "clear_table_marks_done");
+    z80_pop(&enc, RP_HL);
+
+    z80_inc_rp(&enc, RP_HL);
+    z80_xor_a(&enc);
+    z80_ld_hl_a(&enc);
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_rp_nn(&enc, RP_DE, TABLE_SIZE);
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_jr_label(&enc, "clear_table_marks_loop");
+
+    z80_add_label(&enc, "clear_table_marks_done");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
     /* Queue a table pointer for deferred reclaim. This is non-intrusive:
      * the table object is not modified until a future mark phase proves it
      * unreachable and calls gc_sweep_deferred_tables. Input: HL=table ptr. */
@@ -1649,14 +1672,19 @@ static void emit_table_ops(void) {
     z80_ld_mem_hl_label(&enc, "pending_table_reclaim_dropcnt");
     z80_ret(&enc);
 
-    /* Sweep deferred table candidates after a mark phase has identified
-     * unreachable objects. For now this blindly reclaims queued entries and
-     * is intended to be called only by future mark/sweep plumbing. */
+    /* Deterministic table GC cycle: clear marks, mark roots, then sweep
+     * deferred candidates that remain unmarked. Callers still control whether
+     * this runs at all via gc_sweep_enabled. */
     z80_add_label(&enc, "gc_sweep_deferred_tables");
     z80_ld_rp_label(&enc, RP_HL, "gc_sweep_enabled");
     z80_ld_a_hl(&enc);
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_mem_hl_label(&enc, "gc_mark_table_count");
+    z80_ld_mem_hl_label(&enc, "gc_sweep_table_count");
+    z80_call_label(&enc, "clear_table_marks");
     z80_call_label(&enc, "mark_table_roots");
 
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
