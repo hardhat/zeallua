@@ -9,6 +9,7 @@ typedef struct {
     uint16_t length;
     uint16_t pos;
     uint16_t line;
+    uint16_t column;
     bool has_error;
     char error_msg[64];
 } Lexer;

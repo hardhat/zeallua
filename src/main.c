@@ -30,6 +30,52 @@ uint16_t z_strlen(const char* str) {
     return len;
 }
 
+static void z_print_cstr(const char* str) {
+    z_print(str, z_strlen(str));
+}
+
+static void z_print_u16(uint16_t value) {
+    char buf[6];
+    uint8_t i = 0;
+    uint8_t j;
+
+    if (value == 0) {
+        z_print("0", 1);
+        return;
+    }
+
+    while (value > 0 && i < sizeof(buf)) {
+        buf[i++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+
+    for (j = 0; j < i / 2; j++) {
+        char t = buf[j];
+        buf[j] = buf[i - j - 1];
+        buf[i - j - 1] = t;
+    }
+    z_print(buf, i);
+}
+
+static void z_print_error(const char* file_name, uint16_t line, uint16_t column, const char* msg) {
+    if (file_name && file_name[0]) {
+        z_print_cstr(file_name);
+    } else {
+        z_print("<input>", 7);
+    }
+    z_print(":", 1);
+    z_print_u16(line);
+    z_print(":", 1);
+    z_print_u16(column);
+    z_print(": error: ", 9);
+    if (msg && msg[0]) {
+        z_print_cstr(msg);
+    } else {
+        z_print("Unknown error", 13);
+    }
+    z_print("\n", 1);
+}
+
 static char file_buffer[16384];
 
 int main(int argc, const char* argv[]) {
@@ -70,13 +116,18 @@ int main(int argc, const char* argv[]) {
     Chunk* chunk = parser_parse(&p);
     
     if (p.has_error) {
-        z_print("Parser error!\n", 14);
+        z_print_error(argv[1], p.error_line, p.error_column, p.error_msg);
+        exit(1);
+    }
+
+    if (lex.has_error) {
+        z_print_error(argv[1], lex.line, lex.column, lex.error_msg);
         exit(1);
     }
     
     compiler_init();
     if (!compiler_compile(chunk, &compiled)) {
-        z_print("Compiler error!\n", 16);
+        z_print_error(argv[1], compiled.error_line, compiled.error_column, compiled.error_msg);
         exit(1);
     }
     

@@ -9,6 +9,8 @@ typedef struct {
     Token curr;
     Token next;
     bool has_error;
+    uint16_t error_line;
+    uint16_t error_column;
     char error_msg[64];
 } Parser;
 

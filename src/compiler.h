@@ -54,6 +54,10 @@ typedef struct {
     uint16_t func_count;
     const char* globals[MAX_GLOBALS];
     uint16_t global_count;
+    bool has_error;
+    uint16_t error_line;
+    uint16_t error_column;
+    char error_msg[64];
 } CompiledChunk;
 
 void compiler_init(void);

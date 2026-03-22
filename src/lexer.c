@@ -27,6 +27,7 @@ void lexer_init(Lexer* lex, const char* input, uint16_t length) {
     lex->length = length;
     lex->pos = 0;
     lex->line = 1;
+    lex->column = 1;
     lex->has_error = false;
     lex->error_msg[0] = '\0';
 }
@@ -46,6 +47,9 @@ static char advance(Lexer* lex) {
     if (c != '\0') {
         if (c == '\n') {
             lex->line++;
+            lex->column = 1;
+        } else {
+            lex->column++;
         }
         lex->pos++;
     }
@@ -87,9 +91,10 @@ static void skip_whitespace_and_comments(Lexer* lex) {
     }
 }
 
-static void make_error(Lexer* lex, const char* msg, Token* out_tok) {
+static void make_error(Lexer* lex, const char* msg, uint16_t line, uint16_t column, Token* out_tok) {
     out_tok->type = TOK_ERROR;
-    out_tok->line = lex->line;
+    out_tok->line = line;
+    out_tok->column = column;
     lex->has_error = true;
     
     // Copy error msg safely
@@ -101,8 +106,9 @@ static void make_error(Lexer* lex, const char* msg, Token* out_tok) {
     lex->error_msg[i] = '\0';
 }
 
-static void read_string(Lexer* lex, char quote, Token* out_tok) {
-    out_tok->line = lex->line;
+static void read_string(Lexer* lex, char quote, uint16_t start_line, uint16_t start_column, Token* out_tok) {
+    out_tok->line = start_line;
+    out_tok->column = start_column;
     advance(lex); // consume quote
     
     int i = 0;
@@ -125,7 +131,7 @@ static void read_string(Lexer* lex, char quote, Token* out_tok) {
                 out_tok->value.string[i++] = esc;
             }
         } else if (c == '\n') {
-            make_error(lex, "Unterminated string", out_tok);
+            make_error(lex, "Unterminated string", start_line, start_column, out_tok);
             return;
         } else {
             advance(lex);
@@ -134,11 +140,12 @@ static void read_string(Lexer* lex, char quote, Token* out_tok) {
             }
         }
     }
-    make_error(lex, "Unterminated string", out_tok);
+    make_error(lex, "Unterminated string", start_line, start_column, out_tok);
 }
 
-static void read_number(Lexer* lex, Token* out_tok) {
-    out_tok->line = lex->line;
+static void read_number(Lexer* lex, uint16_t start_line, uint16_t start_column, Token* out_tok) {
+    out_tok->line = start_line;
+    out_tok->column = start_column;
     bool is_hex = false;
     
     char buffer[16];
@@ -190,6 +197,7 @@ static void read_number(Lexer* lex, Token* out_tok) {
 
 static void read_ident(Lexer* lex, Token* out_tok) {
     out_tok->line = lex->line;
+    out_tok->column = lex->column;
     int i = 0;
     
     while (peek(lex) != '\0' && is_alphanum(peek(lex))) {
@@ -206,20 +214,25 @@ static void read_ident(Lexer* lex, Token* out_tok) {
 void lexer_next_token(Lexer* lex, Token* out_tok) {
     if (lex->has_error) {
         out_tok->type = TOK_ERROR;
+        out_tok->line = lex->line;
+        out_tok->column = lex->column;
         return;
     }
     
     skip_whitespace_and_comments(lex);
     out_tok->line = lex->line;
+    out_tok->column = lex->column;
     
     char c = peek(lex);
+    uint16_t token_line = lex->line;
+    uint16_t token_column = lex->column;
     if (c == '\0') {
         out_tok->type = TOK_EOF;
         return;
     }
     
-    if (c == '"' || c == '\'') { read_string(lex, c, out_tok); return; }
-    if (is_digit(c)) { read_number(lex, out_tok); return; }
+    if (c == '"' || c == '\'') { read_string(lex, c, token_line, token_column, out_tok); return; }
+    if (is_digit(c)) { read_number(lex, token_line, token_column, out_tok); return; }
     if (is_alpha(c) || c == '_') { read_ident(lex, out_tok); return; }
     
     advance(lex);
@@ -249,7 +262,7 @@ void lexer_next_token(Lexer* lex, Token* out_tok) {
         }
         case '~': {
             if (peek(lex) == '=') { advance(lex); out_tok->type = TOK_TILDEEQ; return; }
-            make_error(lex, "Unexpected character '~'", out_tok);
+            make_error(lex, "Unexpected character '~'", token_line, token_column, out_tok);
             return;
         }
         case '<': {
@@ -272,6 +285,6 @@ void lexer_next_token(Lexer* lex, Token* out_tok) {
         }
     }
     
-    make_error(lex, "Unexpected character", out_tok);
+    make_error(lex, "Unexpected character", token_line, token_column, out_tok);
 }
 

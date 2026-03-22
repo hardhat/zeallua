@@ -41,6 +41,7 @@ typedef struct {
         char    ident[MAX_TOKEN_STR_LEN];
     } value;
     uint16_t line;
+    uint16_t column;
 } Token;
 
 // Utility functions

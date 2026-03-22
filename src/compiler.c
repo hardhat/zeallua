@@ -11,6 +11,27 @@ static CompiledChunk* current_chunk;
 static ScopeContext* current_scope;
 static const char function_slot_name[] = "__func";
 
+static void compiler_copy_msg(char* dest, uint16_t capacity, const char* src) {
+    uint16_t i = 0;
+    if (capacity == 0) return;
+    while (src[i] != '\0' && i < (uint16_t)(capacity - 1)) {
+        dest[i] = src[i];
+        i++;
+    }
+    dest[i] = '\0';
+}
+
+static bool compiler_fail(uint16_t line, uint16_t column, const char* msg) {
+    if (!current_chunk) return false;
+    if (!current_chunk->has_error) {
+        current_chunk->has_error = true;
+        current_chunk->error_line = line;
+        current_chunk->error_column = column;
+        compiler_copy_msg(current_chunk->error_msg, sizeof(current_chunk->error_msg), msg);
+    }
+    return false;
+}
+
 static BytecodeFunction* current_func(void) {
     return current_scope->func;
 }
@@ -1051,9 +1072,15 @@ void compiler_init(void) {
 bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     ScopeContext main_scope;
 
+    if (!out_chunk) return false;
+
     current_chunk = out_chunk;
     current_chunk->func_count = 0;
     current_chunk->global_count = 0;
+    current_chunk->has_error = false;
+    current_chunk->error_line = 0;
+    current_chunk->error_column = 0;
+    current_chunk->error_msg[0] = '\0';
 
     init_bytecode_function(&current_chunk->main, "main");
     analyze_function_body(&current_chunk->main, 0, 0, false, 0, ast_chunk ? ast_chunk->block : 0);
@@ -1063,7 +1090,9 @@ bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     main_scope.enclosing = 0;
     current_scope = &main_scope;
 
-    if (!ast_chunk || !ast_chunk->block) return false;
+    if (!ast_chunk || !ast_chunk->block) {
+        return compiler_fail(0, 0, "Invalid AST input");
+    }
 
     compile_block(ast_chunk->block);
     emit_op(OP_HALT);

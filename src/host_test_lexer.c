@@ -21,7 +21,9 @@ void test_parser(const char* input) {
     
     printf("Parsing: '%s'\n", input);
     if (p.has_error) {
-        printf("Error during parsing: %s\n", p.error_msg);
+        printf("<input>:%u:%u: error: %s\n", (unsigned)p.error_line, (unsigned)p.error_column, p.error_msg);
+    } else if (lex.has_error) {
+        printf("<input>:%u:%u: error: %s\n", (unsigned)p.curr.line, (unsigned)p.curr.column, lex.error_msg);
     } else {
         printf("Success! Block head = %p\n", (void*)chunk->block->head);
     }

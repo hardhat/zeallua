@@ -13,6 +13,51 @@ static Stmt* parse_function_stmt(Parser* p);
 static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv);
 static ExprList* parse_args(Parser* p);
 
+static void copy_string(char* dest, uint16_t capacity, const char* src) {
+    uint16_t i = 0;
+    if (capacity == 0) return;
+    while (src[i] != '\0' && i < (uint16_t)(capacity - 1)) {
+        dest[i] = src[i];
+        i++;
+    }
+    dest[i] = '\0';
+}
+
+static void append_string(char* dest, uint16_t capacity, const char* src) {
+    uint16_t i = 0;
+    uint16_t j = 0;
+    if (capacity == 0) return;
+    while (dest[i] != '\0' && i < (uint16_t)(capacity - 1)) {
+        i++;
+    }
+    while (src[j] != '\0' && i < (uint16_t)(capacity - 1)) {
+        dest[i++] = src[j++];
+    }
+    dest[i] = '\0';
+}
+
+static void parser_set_error(Parser* p, uint16_t line, uint16_t column, const char* msg) {
+    if (p->has_error) return;
+    p->has_error = true;
+    p->error_line = line;
+    p->error_column = column;
+    copy_string(p->error_msg, sizeof(p->error_msg), msg);
+}
+
+static void parser_set_error_at_current(Parser* p, const char* msg) {
+    parser_set_error(p, p->curr.line, p->curr.column, msg);
+}
+
+static void parser_set_expected_error(Parser* p, TokenType expected) {
+    char msg[64];
+    msg[0] = '\0';
+    append_string(msg, sizeof(msg), "Expected ");
+    append_string(msg, sizeof(msg), token_type_to_str(expected));
+    append_string(msg, sizeof(msg), ", got ");
+    append_string(msg, sizeof(msg), token_type_to_str(p->curr.type));
+    parser_set_error_at_current(p, msg);
+}
+
 static bool check(Parser* p, TokenType t) {
     return p->curr.type == t;
 }
@@ -20,6 +65,9 @@ static bool check(Parser* p, TokenType t) {
 static void advance(Parser* p) {
     p->curr = p->next;
     lexer_next_token(p->lex, &p->next);
+    if (p->next.type == TOK_ERROR) {
+        parser_set_error(p, p->next.line, p->next.column, p->lex->error_msg);
+    }
 }
 
 static bool match(Parser* p, TokenType t) {
@@ -34,8 +82,7 @@ static void expect(Parser* p, TokenType t) {
     if (check(p, t)) {
         advance(p);
     } else {
-        p->has_error = true;
-        // In real impl, format err msg
+        parser_set_expected_error(p, t);
     }
 }
 
@@ -76,9 +123,16 @@ static IdentList* identlist_append(IdentList* list, const char* ident) {
 void parser_init(Parser* p, Lexer* lex) {
     p->lex = lex;
     p->has_error = false;
+    p->error_line = 0;
+    p->error_column = 0;
     p->error_msg[0] = '\0';
     lexer_next_token(lex, &p->curr);
     lexer_next_token(lex, &p->next);
+    if (p->curr.type == TOK_ERROR) {
+        parser_set_error(p, p->curr.line, p->curr.column, p->lex->error_msg);
+    } else if (p->next.type == TOK_ERROR) {
+        parser_set_error(p, p->next.line, p->next.column, p->lex->error_msg);
+    }
 }
 
 static Expr* new_expr(ExprType type) {
@@ -97,7 +151,9 @@ static Stmt* new_stmt(StmtType type) {
 Chunk* parser_parse(Parser* p) {
     Chunk* chunk = (Chunk*)ast_alloc(sizeof(Chunk));
     chunk->block = parse_block(p);
-    if (!check(p, TOK_EOF)) p->has_error = true;
+    if (!check(p, TOK_EOF)) {
+        parser_set_error_at_current(p, "Unexpected token after chunk end");
+    }
     return chunk;
 }
 
@@ -260,7 +316,7 @@ static IdentList* parse_param_list(Parser* p) {
                 params = identlist_append(params, p->curr.value.ident);
                 advance(p);
             } else {
-                p->has_error = true;
+                parser_set_error_at_current(p, "Expected parameter name after ','");
                 break;
             }
         }
@@ -305,7 +361,7 @@ static Expr* parse_prefix_expr(Parser* p) {
     } else if (check(p, TOK_LBRACE)) {
         expr = parse_table(p);
     } else {
-        p->has_error = true;
+        parser_set_error_at_current(p, "Expected expression");
         return 0;
     }
 
@@ -331,7 +387,9 @@ static Expr* parse_prefix_expr(Parser* p) {
                 fld->data.field.base = expr; fld->data.field.field = ast_strdup(p->curr.value.ident);
                 advance(p);
                 expr = fld;
-            } else p->has_error = true;
+            } else {
+                parser_set_error_at_current(p, "Expected field name after '.'");
+            }
         } else if (match(p, TOK_COLON)) {
             if (check(p, TOK_IDENT)) {
                 Expr* mcall = new_expr(EXPR_METHOD_CALL);
@@ -341,7 +399,9 @@ static Expr* parse_prefix_expr(Parser* p) {
                 mcall->data.method_call.args = parse_args(p);
                 expect(p, TOK_RPAREN);
                 expr = mcall;
-            } else p->has_error = true;
+            } else {
+                parser_set_error_at_current(p, "Expected method name after ':'");
+            }
         } else if (check(p, TOK_STRING)) {
             ExprList* args = exprlist_append(0, new_expr(EXPR_STRING));
             args->expr->data.string_val = ast_strdup(p->curr.value.string); advance(p);
@@ -385,7 +445,7 @@ static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv) {
         out_lv->data.field.base = expr->data.field.base; 
         out_lv->data.field.field = expr->data.field.field;
     } else {
-        p->has_error = true;
+        parser_set_error_at_current(p, "Invalid assignment target");
         out_lv->type = LVAL_VAR; 
         out_lv->data.var_name = "error";
     }
@@ -418,10 +478,7 @@ static Stmt* parse_assignment_or_call(Parser* p) {
         if (expr && (expr->type == EXPR_CALL || expr->type == EXPR_METHOD_CALL)) {
             Stmt* s = new_stmt(STMT_CALL); s->data.call = expr; return s;
         } else {
-            p->has_error = true;
-            int i = 0; const char* msg = "Expected assignment or function call";
-            while(msg[i]) { p->error_msg[i] = msg[i]; i++; }
-            p->error_msg[i] = '\0';
+            parser_set_error_at_current(p, "Expected assignment or function call");
             return new_stmt(STMT_CALL);
         }
     }
@@ -432,7 +489,12 @@ static Stmt* parse_local(Parser* p) {
     Stmt* s;
     if (match(p, TOK_FUNCTION)) {
         s = new_stmt(STMT_LOCAL_FUNC);
-        if (check(p, TOK_IDENT)) { s->data.local_func.name = ast_strdup(p->curr.value.ident); advance(p); }
+        if (check(p, TOK_IDENT)) {
+            s->data.local_func.name = ast_strdup(p->curr.value.ident);
+            advance(p);
+        } else {
+            parser_set_error_at_current(p, "Expected function name after 'local function'");
+        }
         expect(p, TOK_LPAREN);
         IdentList* params = parse_param_list(p);
         expect(p, TOK_RPAREN);
@@ -442,9 +504,20 @@ static Stmt* parse_local(Parser* p) {
     } else {
         s = new_stmt(STMT_LOCAL);
         IdentList* names = 0;
-        if (check(p, TOK_IDENT)) { names = identlist_append(names, p->curr.value.ident); advance(p); }
+        if (check(p, TOK_IDENT)) {
+            names = identlist_append(names, p->curr.value.ident);
+            advance(p);
+        } else {
+            parser_set_error_at_current(p, "Expected local variable name");
+        }
         while (match(p, TOK_COMMA)) {
-            if (check(p, TOK_IDENT)) { names = identlist_append(names, p->curr.value.ident); advance(p); }
+            if (check(p, TOK_IDENT)) {
+                names = identlist_append(names, p->curr.value.ident);
+                advance(p);
+            } else {
+                parser_set_error_at_current(p, "Expected local variable name after ','");
+                break;
+            }
         }
         s->data.local.names = names;
         ExprList* exprs = 0;
@@ -469,7 +542,7 @@ static Stmt* parse_function_stmt(Parser* p) {
         s->data.func_def.name.base = ast_strdup(p->curr.value.ident);
         advance(p);
     } else {
-        p->has_error = true;
+        parser_set_error_at_current(p, "Expected function name");
     }
 
     expect(p, TOK_LPAREN);
@@ -560,7 +633,7 @@ static Stmt* parse_for(Parser* p) {
         return s;
     }
 
-    p->has_error = true;
+    parser_set_error_at_current(p, "Expected for-loop variable");
     return new_stmt(STMT_DO);
 }
 
