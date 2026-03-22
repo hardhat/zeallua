@@ -144,3 +144,35 @@
 - [ ] Add example scripts covering console input, file read/write, and video-memory writes.
 - [ ] Document the supported Zeal-specific Lua API, especially what is intentionally non-standard versus Lua 5.1.
 - [ ] Add a focused test matrix for host, emulator, and real hardware so syscall-backed features can be verified independently from the compiler pipeline.
+
+## Phase 8: Runtime Memory Modernization [PLANNED]
+
+### Scope (Approved)
+- [x] Step 1: allocator foundations with reusable dynamic object blocks.
+- [x] Step 2: dynamic/reusable strings.
+- [x] Step 3: dynamic/reusable tables.
+- [x] Step 4: lightweight non-moving mark/sweep GC.
+- [x] Step 5: OOM and allocator diagnostics.
+- [ ] Step 6 (banked SRAM object storage) deferred.
+
+### Concrete 48K Working-RAM Budget Target
+- [ ] Fixed runtime reserve: 7,424 bytes.
+- [ ] C/OS stack and interrupt safety margin: 3,072 bytes.
+- [ ] Value stack target: 1,536 bytes.
+- [ ] Call stack target: 768 bytes.
+- [ ] VM state and metadata target: 1,024 bytes.
+- [ ] Allocator/GC bookkeeping target: 1,024 bytes.
+- [ ] Program image reserve target: 12,288 bytes.
+- [ ] Managed dynamic heap target: 29,440 bytes.
+- [ ] Table arena target: 14,336 bytes.
+- [ ] String arena target: 11,264 bytes.
+- [ ] Closure/upvalue arena target: 2,560 bytes.
+- [ ] Fragmentation emergency spare target: 1,280 bytes.
+
+### Implementation Plan (before banked SRAM)
+- [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
+- [ ] Replace monotonic table and string allocation with free-list backed allocators.
+- [ ] Add string interning for short strings/identifiers and hash caching.
+- [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
+- [ ] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free).
+- [ ] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators.
