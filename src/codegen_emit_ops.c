@@ -1451,6 +1451,109 @@ static void emit_table_ops(void) {
     z80_add_label(&enc, "mark_table_roots");
     z80_call_label(&enc, "mark_table_roots_globals");
     z80_call_label(&enc, "mark_table_roots_vstack");
+    z80_call_label(&enc, "mark_table_roots_current_env");
+    z80_call_label(&enc, "mark_table_roots_current_closure");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_cell"); /* HL = cell ptr [value_lo][value_hi][type] */
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_cell_done");
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "mark_table_reachable");
+    z80_add_label(&enc, "mark_table_cell_done");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_roots_current_env");
+    z80_ld_de_mem_label(&enc, "current_env_ptr");
+    z80_ld_r_r(&enc, REG_A, REG_D);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_current_env_has_env");
+    z80_ld_r_r(&enc, REG_A, REG_E);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_current_env_done");
+    z80_add_label(&enc, "mark_table_roots_current_env_has_env");
+
+    z80_ld_hl_mem_label(&enc, "current_closure_ptr");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_current_env_has_closure");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_current_env_done");
+    z80_add_label(&enc, "mark_table_roots_current_env_has_closure");
+
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);     /* env local count */
+    z80_ld_r_r(&enc, REG_B, REG_A);
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_current_env_done");
+    z80_ld_r_r(&enc, REG_H, REG_D);
+    z80_ld_r_r(&enc, REG_L, REG_E);
+
+    z80_add_label(&enc, "mark_table_roots_current_env_loop");
+    z80_push(&enc, RP_BC);
+    z80_call_label(&enc, "mark_table_cell");
+    z80_pop(&enc, RP_BC);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_djnz_label(&enc, "mark_table_roots_current_env_loop");
+    z80_add_label(&enc, "mark_table_roots_current_env_done");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "mark_table_roots_current_closure");
+    z80_ld_hl_mem_label(&enc, "current_closure_ptr");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_current_closure_nonzero");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_current_closure_done");
+    z80_add_label(&enc, "mark_table_roots_current_closure_nonzero");
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);   /* upvalue count */
+    z80_ld_r_r(&enc, REG_B, REG_A);
+    z80_pop(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_current_closure_done");
+
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL); /* HL = first captured cell pointer entry */
+
+    z80_add_label(&enc, "mark_table_roots_current_closure_loop");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_push(&enc, RP_BC);
+    z80_ld_r_r(&enc, REG_H, REG_D);
+    z80_ld_r_r(&enc, REG_L, REG_E);
+    z80_call_label(&enc, "mark_table_cell");
+    z80_pop(&enc, RP_BC);
+    z80_pop(&enc, RP_HL);
+    z80_djnz_label(&enc, "mark_table_roots_current_closure_loop");
+    z80_add_label(&enc, "mark_table_roots_current_closure_done");
     z80_ret(&enc);
 
     z80_add_label(&enc, "table_is_marked_clear"); /* HL = table ptr, A=1 if marked else 0 */
