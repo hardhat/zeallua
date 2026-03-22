@@ -101,16 +101,37 @@ _sys_open:
 _sys_open_cmp:
     ld a, (bc)
     cp (hl)
-    jr nz, _sys_open_fail
+    jr nz, _sys_open_try_empty
     or a
-    jr z, _sys_open_ok
+    jr z, _sys_open_ok_main
     inc bc
     inc hl
     jr _sys_open_cmp
 
-_sys_open_ok:
+_sys_open_try_empty:
+    pop bc
+    push bc
+    ld hl, _EMPTY_NAME
+_sys_open_cmp_empty:
+    ld a, (bc)
+    cp (hl)
+    jr nz, _sys_open_fail
+    or a
+    jr z, _sys_open_ok_empty
+    inc bc
+    inc hl
+    jr _sys_open_cmp_empty
+
+_sys_open_ok_main:
     pop bc
     ld hl, _FILE_BUFFER
+    ld (_file_ptr), hl
+    ld a, 2
+    ret
+
+_sys_open_ok_empty:
+    pop bc
+    ld hl, _EMPTY_BUFFER
     ld (_file_ptr), hl
     ld a, 2
     ret
@@ -229,8 +250,14 @@ _OUTPUT_BUFFER:
 _FILE_NAME:
     db "hello.txt", 0
 
+_EMPTY_NAME:
+    db "empty.txt", 0
+
 _file_ptr:
     dw _FILE_BUFFER
 
 _FILE_BUFFER:
     db "Z80", 10, 0
+
+_EMPTY_BUFFER:
+    db 0

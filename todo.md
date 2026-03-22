@@ -113,6 +113,7 @@
 - [ ] Add regression coverage for empty input, long input truncation/bounds, and prompt + response behavior.
 	- [x] Prompt + response behavior covered by `test/builtin_input.lua`.
 	- [ ] Add explicit empty-input and truncation-focused cases.
+	- [ ] Add an empty-stdin (`nil`) case in the ucsim stub path.
 
 #### File Access
 - [ ] Add a runtime wrapper layer around `open`, `read`, `write`, and `close` that normalizes Zeal error handling and keeps syscall details out of the VM core.
@@ -124,6 +125,8 @@
 - [ ] Add integration tests that compile and run Lua scripts performing file reads/writes against the host stub, then confirm equivalent behavior on Zeal hardware or emulator.
 	- [x] Added host-stub/ucsim regression for read path: `test/builtin_readfile.lua`.
 	- [x] Added host-stub/ucsim regression for write path: `test/builtin_writefile.lua`.
+	- [x] Added missing-file and empty-file read regressions.
+	- [x] Added write failure and non-string payload coercion regressions.
 
 #### Paged Video Memory Writes
 - [ ] Add a low-level paged-memory copy helper for Zeal video access that takes the destination page explicitly, disables interrupts, maps that page into the low 16K window, copies bytes, restores the original mapping, and re-enables interrupts.
