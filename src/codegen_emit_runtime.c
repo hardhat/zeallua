@@ -371,7 +371,7 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "table_reclaim_candidate"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "pending_table_reclaim_head"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "pending_table_reclaim_tail"); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "gc_sweep_enabled"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "gc_sweep_enabled"); z80_emit_b(&enc, 1);
     z80_add_label(&enc, "pending_table_reclaim_dropcnt"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_mark_table_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_sweep_table_count"); z80_emit_w(&enc, 0);

@@ -150,8 +150,8 @@
 ### Scope (Approved)
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
-- [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop now stages table reclaim candidates; safe reclaim still pending mark/reachability)
-- [ ] Step 4: lightweight non-moving mark/sweep GC. (table mark-bit support added; root scan now covers globals, value stack, active frame locals, current_env cells, current_closure captured cells, and all saved env/closure ptrs in every caller frame on the call stack; deterministic cycle prep now clears table marks + resets mark/sweep counters before root marking; threshold-trigger wiring added at allocator side; sweep remains gated by gc_sweep_enabled for soft triggers)
+- [x] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop stages table reclaim candidates; mark/sweep GC completes the safe reclaim path)
+- [x] Step 4: lightweight non-moving mark/sweep GC. (complete: root scan covers globals, value stack, frame locals, current_env, current_closure, and all saved env/closure ptrs on the call stack; deterministic clear→mark→sweep cycle; 25%/12.5% threshold triggers; gc_sweep_enabled=1 by default)
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table counters added; soft/force trigger counters added; gc_cycle_count added)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
