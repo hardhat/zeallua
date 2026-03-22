@@ -62,6 +62,7 @@ typedef enum {
     OP_TOSTRING = 0xA3,
     OP_INPUT = 0xA4,
     OP_READFILE = 0xA5,
+    OP_WRITEFILE = 0xA6,
 
     OP_HALT = 0xFF
 } OpCode;

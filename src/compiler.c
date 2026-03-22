@@ -652,6 +652,23 @@ static bool compile_builtin_call(Expr* expr) {
         return true;
     }
 
+    if (strcmp(name, "writefile") == 0) {
+        ExprList* first_arg;
+        ExprList* second_arg;
+
+        if (arg_count != 2) {
+            compiler_fail_at_expr(expr, "writefile expects exactly 2 arguments");
+            return true;
+        }
+
+        first_arg = expr->data.call.args;
+        second_arg = first_arg ? first_arg->next : 0;
+        compile_expr(first_arg->expr);
+        compile_expr(second_arg->expr);
+        emit_op(OP_WRITEFILE);
+        return true;
+    }
+
     return false;
 }
 

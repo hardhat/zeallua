@@ -321,6 +321,7 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0xA3); z80_jp_cc_label(&enc, CC_Z, "op_tostring");
     z80_cp_a_n(&enc, 0xA4); z80_jp_cc_label(&enc, CC_Z, "op_input");
     z80_cp_a_n(&enc, 0xA5); z80_jp_cc_label(&enc, CC_Z, "op_readfile");
+    z80_cp_a_n(&enc, 0xA6); z80_jp_cc_label(&enc, CC_Z, "op_writefile");
     z80_jp_label(&enc, "vm_loop");
 }
 

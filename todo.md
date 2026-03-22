@@ -118,11 +118,12 @@
 - [ ] Add a runtime wrapper layer around `open`, `read`, `write`, and `close` that normalizes Zeal error handling and keeps syscall details out of the VM core.
 - [ ] Implement the first Lua file functions in stages: start with whole-file helpers (`loadfile`, `dofile`, `readfile`, `writefile` if simpler), then grow into handle-based operations only if the VM representation stays tractable.
 	- [x] Added `readfile(path)` builtin using syscall-backed `open/read/close` in VM runtime.
-	- [ ] Add `writefile(path, data)`.
+	- [x] Added `writefile(path, data)` builtin using syscall-backed `open/write/close` in VM runtime.
 	- [ ] Add `loadfile` / `dofile` semantics.
 - [ ] If handle-based APIs are added, define a concrete file-handle representation in the runtime, ownership/lifetime rules, and how open descriptors are closed on script exit and runtime errors.
 - [ ] Add integration tests that compile and run Lua scripts performing file reads/writes against the host stub, then confirm equivalent behavior on Zeal hardware or emulator.
 	- [x] Added host-stub/ucsim regression for read path: `test/builtin_readfile.lua`.
+	- [x] Added host-stub/ucsim regression for write path: `test/builtin_writefile.lua`.
 
 #### Paged Video Memory Writes
 - [ ] Add a low-level paged-memory copy helper for Zeal video access that takes the destination page explicitly, disables interrupts, maps that page into the low 16K window, copies bytes, restores the original mapping, and re-enables interrupts.

@@ -125,9 +125,16 @@ _sys_close:
     ret
 
 _sys_write:
-    ld a, h         ; Only capture stdout
+    ld a, h         ; Capture stdout or file writes
     cp 0
-    jr nz, _sys_write_done
+    jr z, _sys_write_stdout
+    cp 2
+    jr z, _sys_write_file
+    jr _sys_write_done
+
+_sys_write_stdout:
+    ld hl, 0
+    ld (_read_count), hl
 
 _sys_write_loop:
     ld a, c
@@ -137,9 +144,42 @@ _sys_write_loop:
     call _append_output
     inc de
     dec bc
+    ld hl, (_read_count)
+    inc hl
+    ld (_read_count), hl
     jr _sys_write_loop
 
+_sys_write_file:
+    ld hl, 0
+    ld (_read_count), hl
+    ld hl, (_file_ptr)
+
+_sys_write_file_loop:
+    ld a, c
+    or b
+    jr z, _sys_write_file_done
+    ld a, (de)
+    ld (hl), a
+    inc de
+    inc hl
+    dec bc
+    push hl
+    ld hl, (_read_count)
+    inc hl
+    ld (_read_count), hl
+    pop hl
+    jr _sys_write_file_loop
+
+_sys_write_file_done:
+    xor a
+    ld (hl), a
+    ld (_file_ptr), hl
+    ld bc, (_read_count)
+    xor a
+    ret
+
 _sys_write_done:
+    ld bc, (_read_count)
     xor a
     ret
 

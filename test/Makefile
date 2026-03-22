@@ -29,7 +29,7 @@ DUMP_BYTES ?= 7
 DUMP_SPACE ?= rom
 STEP_COUNT ?=
 
-STDOUT_TESTS := print_stdout hello_world factorial_readme fibonacci_readme builtin_input builtin_readfile
+STDOUT_TESTS := print_stdout hello_world factorial_readme fibonacci_readme builtin_input builtin_readfile builtin_writefile
 
 ifneq ($(filter $(TEST),$(STDOUT_TESTS)),)
 DUMP_ADDR := 0x0200
@@ -59,6 +59,10 @@ endif
 
 ifeq ($(TEST),builtin_readfile)
 DUMP_BYTES := 5
+endif
+
+ifeq ($(TEST),builtin_writefile)
+DUMP_BYTES := 9
 endif
 
 SUITE_TESTS := \
@@ -122,6 +126,7 @@ SUITE_TESTS := \
 	builtin_type \
 	builtin_input \
 	builtin_readfile \
+	builtin_writefile \
 	builtin_tostring \
 	builtin_tonumber \
 	table_array_get \

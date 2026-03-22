@@ -161,6 +161,16 @@ static void emit_stack_and_closure_ops(void) {
     z80_call_label(&enc, "vstack_push");
     z80_jp_label(&enc, "vm_loop");
 
+    z80_add_label(&enc, "op_writefile");
+    z80_call_label(&enc, "vstack_pop");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_ld_mem_hl_label(&enc, "writefile_data_ptr");
+    z80_call_label(&enc, "vstack_pop");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_call_label(&enc, "write_file_string");
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
     z80_add_label(&enc, "op_concat");
     z80_call_label(&enc, "vstack_pop");
     z80_call_label(&enc, "coerce_to_string");
@@ -704,6 +714,49 @@ static void emit_print_and_string_ops(void) {
     z80_add_label(&enc, "read_file_string_fail");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_r_n(&enc, REG_A, TYPE_NIL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "write_file_string");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_rp_nn(&enc, RP_HL, 0x1502);
+    z80_rst(&enc, 0x08);
+    z80_cp_a_n(&enc, 0x80);
+    z80_jr_cc_label(&enc, CC_NC, "write_file_string_false");
+    z80_ld_rp_label(&enc, RP_HL, "writefile_dev");
+    z80_ld_hl_a(&enc);
+
+    z80_ld_hl_mem_label(&enc, "writefile_data_ptr");
+    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_rp_label(&enc, RP_HL, "writefile_dev");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_H, REG_A);
+    z80_ld_r_n(&enc, REG_L, 1);
+    z80_rst(&enc, 0x08);
+    z80_push(&enc, RP_AF);
+
+    z80_ld_rp_label(&enc, RP_HL, "writefile_dev");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_H, REG_A);
+    z80_ld_r_n(&enc, REG_L, 3);
+    z80_rst(&enc, 0x08);
+
+    z80_pop(&enc, RP_AF);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "write_file_string_false");
+    z80_ld_rp_nn(&enc, RP_HL, 1);
+    z80_ld_r_n(&enc, REG_A, TYPE_BOOL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "write_file_string_false");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_r_n(&enc, REG_A, TYPE_BOOL);
     z80_ret(&enc);
 
     z80_add_label(&enc, "coerce_to_string");
