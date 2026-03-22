@@ -102,6 +102,11 @@ DUMP_SYMBOL := pending_table_reclaim_tail
 DUMP_BYTES := 1
 endif
 
+ifeq ($(TEST),table_reclaim_queue_overflow)
+DUMP_SYMBOL := pending_table_reclaim_dropcnt
+DUMP_BYTES := 2
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -187,6 +192,7 @@ SUITE_TESTS := \
 	table_string_index_get \
 	table_string_index_set \
 	table_reclaim_queue_smoke \
+	table_reclaim_queue_overflow \
 	table_example_core \
 	for_in_array \
 	for_in_empty \

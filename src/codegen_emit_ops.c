@@ -1403,15 +1403,20 @@ static void emit_table_ops(void) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "queue_table_reclaim_full");
-    z80_ld_hl_mem_label(&enc, "pending_table_reclaim_drop_count");
+    z80_ld_hl_mem_label(&enc, "pending_table_reclaim_dropcnt");
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_mem_hl_label(&enc, "pending_table_reclaim_drop_count");
+    z80_ld_mem_hl_label(&enc, "pending_table_reclaim_dropcnt");
     z80_ret(&enc);
 
     /* Sweep deferred table candidates after a mark phase has identified
      * unreachable objects. For now this blindly reclaims queued entries and
      * is intended to be called only by future mark/sweep plumbing. */
     z80_add_label(&enc, "gc_sweep_deferred_tables");
+    z80_ld_rp_label(&enc, RP_HL, "gc_sweep_enabled");
+    z80_ld_a_hl(&enc);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
     z80_ld_a_hl(&enc);
     z80_ld_r_r(&enc, REG_C, REG_A);

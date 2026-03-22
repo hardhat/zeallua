@@ -151,8 +151,8 @@
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
 - [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop now stages table reclaim candidates; safe reclaim still pending mark/reachability)
-- [ ] Step 4: lightweight non-moving mark/sweep GC. (deferred table reclaim queue + gc_sweep_deferred_tables helper added; root marking/reachability still pending)
-- [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + richer diagnostics in progress)
+- [ ] Step 4: lightweight non-moving mark/sweep GC. (deferred table reclaim queue + gc_sweep_deferred_tables helper added; sweep is gated by gc_sweep_enabled; root marking/reachability still pending)
+- [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics now active)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
 ### Concrete 48K Working-RAM Budget Target
@@ -174,6 +174,6 @@
 - [ ] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
-- [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; mark integration pending)
+- [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; mark integration pending)
 - [ ] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free).
 - [~] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators. (allocator counters and watermark symbols are present; runtime updates being wired)
