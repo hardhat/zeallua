@@ -1303,6 +1303,16 @@ static void emit_numeric_and_misc_ops(void) {
 
 static void emit_table_ops(void) {
     z80_add_label(&enc, "alloc_table_object");
+    z80_add_label(&enc, "alloc_table_object_try_free");
+    z80_ld_hl_mem_label(&enc, "free_table_list");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_table_object_from_free");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_table_object_from_free");
+
+    z80_call_label(&enc, "maybe_gc_tables_on_alloc");
     z80_ld_hl_mem_label(&enc, "free_table_list");
     z80_ld_r_r(&enc, REG_A, REG_H);
     z80_or_a(&enc);
@@ -1672,20 +1682,14 @@ static void emit_table_ops(void) {
     z80_ld_mem_hl_label(&enc, "pending_table_reclaim_dropcnt");
     z80_ret(&enc);
 
-    /* Deterministic table GC cycle: clear marks, mark roots, then sweep
-     * deferred candidates that remain unmarked. Callers still control whether
-     * this runs at all via gc_sweep_enabled. */
-    z80_add_label(&enc, "gc_sweep_deferred_tables");
-    z80_ld_rp_label(&enc, RP_HL, "gc_sweep_enabled");
-    z80_ld_a_hl(&enc);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
-
+    z80_add_label(&enc, "gc_run_sweep_cycle");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_mem_hl_label(&enc, "gc_mark_table_count");
     z80_ld_mem_hl_label(&enc, "gc_sweep_table_count");
     z80_call_label(&enc, "clear_table_marks");
     z80_call_label(&enc, "mark_table_roots");
+
+    z80_add_label(&enc, "gc_run_sweep_cycle_loop");
 
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
     z80_ld_a_hl(&enc);
@@ -1693,7 +1697,7 @@ static void emit_table_ops(void) {
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
     z80_ld_a_hl(&enc);
     z80_cp_a_r(&enc, REG_C);
-    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+    z80_jr_cc_label(&enc, CC_Z, "gc_run_sweep_cycle_done");
 
     z80_ld_r_r(&enc, REG_A, REG_C);
     z80_inc_r(&enc, REG_A);
@@ -1734,9 +1738,58 @@ static void emit_table_ops(void) {
     z80_ld_r_r(&enc, REG_A, REG_B);
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
     z80_ld_hl_a(&enc);
-    z80_jr_label(&enc, "gc_sweep_deferred_tables");
+    z80_jr_label(&enc, "gc_run_sweep_cycle_loop");
 
+    z80_add_label(&enc, "gc_run_sweep_cycle_done");
+    z80_ret(&enc);
+
+    /* Deterministic table GC cycle entrypoint used by runtime:
+     * gated by gc_sweep_enabled for normal sweep calls. */
+    z80_add_label(&enc, "gc_sweep_deferred_tables");
+    z80_ld_rp_label(&enc, RP_HL, "gc_sweep_enabled");
+    z80_ld_a_hl(&enc);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+    z80_call_label(&enc, "gc_run_sweep_cycle");
     z80_add_label(&enc, "gc_sweep_deferred_tables_done");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc");
+    z80_ld_rp_label(&enc, RP_HL, "heap_end");
+    z80_ld_de_mem_label(&enc, "heap_ptr");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE); /* HL = free bytes in table arena */
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 4));
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_NC, "maybe_gc_tables_on_alloc_no_trigger");
+
+    z80_ld_hl_mem_label(&enc, "gc_trigger_soft_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_trigger_soft_count");
+
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 8));
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_NC, "maybe_gc_tables_on_alloc_soft_only");
+
+    z80_ld_hl_mem_label(&enc, "gc_trigger_force_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_trigger_force_count");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "gc_run_sweep_cycle");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_only");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "gc_sweep_deferred_tables");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_no_trigger");
+    z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
     z80_add_label(&enc, "op_newtable");
