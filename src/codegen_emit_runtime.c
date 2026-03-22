@@ -358,6 +358,8 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "readfile_dev"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "writefile_dev"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "writefile_data_ptr"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "open_flags"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "io_data_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "tostring_negative"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "heap_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_temp"); z80_emit_w(&enc, 0);

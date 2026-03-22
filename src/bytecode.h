@@ -63,6 +63,10 @@ typedef enum {
     OP_INPUT = 0xA4,
     OP_READFILE = 0xA5,
     OP_WRITEFILE = 0xA6,
+    OP_OPEN = 0xA7,
+    OP_READ = 0xA8,
+    OP_WRITE = 0xA9,
+    OP_CLOSE = 0xAA,
 
     OP_HALT = 0xFF
 } OpCode;

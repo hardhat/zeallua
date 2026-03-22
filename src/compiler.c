@@ -669,6 +669,63 @@ static bool compile_builtin_call(Expr* expr) {
         return true;
     }
 
+    if (strcmp(name, "open") == 0) {
+        ExprList* first_arg;
+        ExprList* second_arg;
+
+        if (arg_count < 1 || arg_count > 2) {
+            compiler_fail_at_expr(expr, "open expects 1 or 2 arguments");
+            return true;
+        }
+
+        first_arg = expr->data.call.args;
+        compile_expr(first_arg->expr);
+        if (arg_count == 2) {
+            second_arg = first_arg ? first_arg->next : 0;
+            compile_expr(second_arg->expr);
+        }
+        emit_op(OP_OPEN);
+        emit_byte((uint8_t)arg_count);
+        return true;
+    }
+
+    if (strcmp(name, "read") == 0) {
+        if (arg_count != 1) {
+            compiler_fail_at_expr(expr, "read expects exactly 1 argument");
+            return true;
+        }
+        compile_expr(expr->data.call.args->expr);
+        emit_op(OP_READ);
+        return true;
+    }
+
+    if (strcmp(name, "write") == 0) {
+        ExprList* first_arg;
+        ExprList* second_arg;
+
+        if (arg_count != 2) {
+            compiler_fail_at_expr(expr, "write expects exactly 2 arguments");
+            return true;
+        }
+
+        first_arg = expr->data.call.args;
+        second_arg = first_arg ? first_arg->next : 0;
+        compile_expr(first_arg->expr);
+        compile_expr(second_arg->expr);
+        emit_op(OP_WRITE);
+        return true;
+    }
+
+    if (strcmp(name, "close") == 0) {
+        if (arg_count != 1) {
+            compiler_fail_at_expr(expr, "close expects exactly 1 argument");
+            return true;
+        }
+        compile_expr(expr->data.call.args->expr);
+        emit_op(OP_CLOSE);
+        return true;
+    }
+
     return false;
 }
 

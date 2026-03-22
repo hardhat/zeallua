@@ -1,0 +1,6 @@
+local h = open("hello.txt", 0x15)
+print(write(h, "Q"))
+print(close(h))
+local h2 = open("hello.txt")
+print(read(h2))
+print(close(h2))

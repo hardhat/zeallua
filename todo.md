@@ -112,11 +112,13 @@
 - [x] Implement `input([prompt])` semantics: optionally print a prompt, read a line, strip trailing newline when present, and return a Lua string or `nil` on EOF/error.
 - [ ] Add regression coverage for empty input, long input truncation/bounds, and prompt + response behavior.
 	- [x] Prompt + response behavior covered by `test/builtin_input.lua`.
+	- [x] Added EOF-to-`nil` coverage via `test/builtin_input_eof.lua` (second `input()` after fixture drain).
 	- [ ] Add explicit empty-input and truncation-focused cases.
-	- [ ] Add an empty-stdin (`nil`) case in the ucsim stub path.
 
 #### File Access
 - [ ] Add a runtime wrapper layer around `open`, `read`, `write`, and `close` that normalizes Zeal error handling and keeps syscall details out of the VM core.
+	- [x] Added minimal builtin wrappers: `open(path[, flags])`, `read(handle)`, `write(handle, data)`, `close(handle)`.
+	- [ ] Add richer error values/diagnostics beyond boolean/nil returns.
 - [ ] Implement the first Lua file functions in stages: start with whole-file helpers (`loadfile`, `dofile`, `readfile`, `writefile` if simpler), then grow into handle-based operations only if the VM representation stays tractable.
 	- [x] Added `readfile(path)` builtin using syscall-backed `open/read/close` in VM runtime.
 	- [x] Added `writefile(path, data)` builtin using syscall-backed `open/write/close` in VM runtime.
@@ -127,6 +129,7 @@
 	- [x] Added host-stub/ucsim regression for write path: `test/builtin_writefile.lua`.
 	- [x] Added missing-file and empty-file read regressions.
 	- [x] Added write failure and non-string payload coercion regressions.
+	- [x] Added handle API regressions: open/read/close, open/write/close, and open-missing.
 
 #### Paged Video Memory Writes
 - [ ] Add a low-level paged-memory copy helper for Zeal video access that takes the destination page explicitly, disables interrupts, maps that page into the low 16K window, copies bytes, restores the original mapping, and re-enables interrupts.

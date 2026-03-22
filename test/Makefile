@@ -29,7 +29,7 @@ DUMP_BYTES ?= 7
 DUMP_SPACE ?= rom
 STEP_COUNT ?=
 
-STDOUT_TESTS := print_stdout hello_world factorial_readme fibonacci_readme builtin_input builtin_readfile builtin_writefile builtin_readfile_missing builtin_readfile_empty builtin_writefile_missing builtin_writefile_number
+STDOUT_TESTS := print_stdout hello_world factorial_readme fibonacci_readme builtin_input builtin_input_eof builtin_readfile builtin_writefile builtin_readfile_missing builtin_readfile_empty builtin_writefile_missing builtin_writefile_number builtin_open_read_close builtin_open_write_close builtin_open_missing
 
 ifneq ($(filter $(TEST),$(STDOUT_TESTS)),)
 DUMP_ADDR := 0x0200
@@ -57,6 +57,10 @@ ifeq ($(TEST),builtin_input)
 DUMP_BYTES := 10
 endif
 
+ifeq ($(TEST),builtin_input_eof)
+DUMP_BYTES := 9
+endif
+
 ifeq ($(TEST),builtin_readfile)
 DUMP_BYTES := 5
 endif
@@ -79,6 +83,18 @@ endif
 
 ifeq ($(TEST),builtin_writefile_number)
 DUMP_BYTES := 9
+endif
+
+ifeq ($(TEST),builtin_open_read_close)
+DUMP_BYTES := 17
+endif
+
+ifeq ($(TEST),builtin_open_write_close)
+DUMP_BYTES := 17
+endif
+
+ifeq ($(TEST),builtin_open_missing)
+DUMP_BYTES := 4
 endif
 
 SUITE_TESTS := \
@@ -141,12 +157,16 @@ SUITE_TESTS := \
 	pow_assoc \
 	builtin_type \
 	builtin_input \
+	builtin_input_eof \
 	builtin_readfile \
 	builtin_writefile \
 	builtin_readfile_missing \
 	builtin_readfile_empty \
 	builtin_writefile_missing \
 	builtin_writefile_number \
+	builtin_open_read_close \
+	builtin_open_write_close \
+	builtin_open_missing \
 	builtin_tostring \
 	builtin_tonumber \
 	table_array_get \

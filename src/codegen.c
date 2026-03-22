@@ -322,6 +322,10 @@ static void emit_entry_and_dispatch(CompiledChunk* chunk) {
     z80_cp_a_n(&enc, 0xA4); z80_jp_cc_label(&enc, CC_Z, "op_input");
     z80_cp_a_n(&enc, 0xA5); z80_jp_cc_label(&enc, CC_Z, "op_readfile");
     z80_cp_a_n(&enc, 0xA6); z80_jp_cc_label(&enc, CC_Z, "op_writefile");
+    z80_cp_a_n(&enc, 0xA7); z80_jp_cc_label(&enc, CC_Z, "op_open");
+    z80_cp_a_n(&enc, 0xA8); z80_jp_cc_label(&enc, CC_Z, "op_read");
+    z80_cp_a_n(&enc, 0xA9); z80_jp_cc_label(&enc, CC_Z, "op_write");
+    z80_cp_a_n(&enc, 0xAA); z80_jp_cc_label(&enc, CC_Z, "op_close");
     z80_jp_label(&enc, "vm_loop");
 }
 
