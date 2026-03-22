@@ -10,6 +10,8 @@ typedef struct ScopeContext {
 static CompiledChunk* current_chunk;
 static ScopeContext* current_scope;
 static const char function_slot_name[] = "__func";
+static const Stmt* current_stmt_node;
+static const Expr* current_expr_node;
 
 static void compiler_copy_msg(char* dest, uint16_t capacity, const char* src) {
     uint16_t i = 0;
@@ -31,6 +33,9 @@ static bool compiler_fail(uint16_t line, uint16_t column, const char* msg) {
     }
     return false;
 }
+
+static bool compiler_fail_at_stmt(const Stmt* stmt, const char* msg);
+static bool compiler_fail_at_expr(const Expr* expr, const char* msg);
 
 static BytecodeFunction* current_func(void) {
     return current_scope->func;
@@ -57,8 +62,13 @@ static void init_bytecode_function(BytecodeFunction* func, const char* name) {
 
 static void emit_byte(uint8_t b) {
     BytecodeFunction* func = current_func();
+    if (current_chunk->has_error) return;
     if (func->code_len < MAX_CODE_SIZE) {
         func->code[func->code_len++] = b;
+    } else if (current_expr_node) {
+        compiler_fail_at_expr(current_expr_node, "Bytecode too large");
+    } else {
+        compiler_fail_at_stmt(current_stmt_node, "Bytecode too large");
     }
 }
 
@@ -75,6 +85,8 @@ static uint8_t add_constant(Constant* c) {
     BytecodeFunction* func = current_func();
     uint16_t i;
 
+    if (current_chunk->has_error) return 0;
+
     for (i = 0; i < func->const_count; i++) {
         if (func->constants[i].type == c->type) {
             if (c->type == CONST_NUMBER && func->constants[i].data.number == c->data.number) return (uint8_t)i;
@@ -83,15 +95,37 @@ static uint8_t add_constant(Constant* c) {
         }
     }
 
+    if (func->const_count >= MAX_CONSTANTS) {
+        if (current_expr_node) {
+            compiler_fail_at_expr(current_expr_node, "Too many constants");
+        } else {
+            compiler_fail_at_stmt(current_stmt_node, "Too many constants");
+        }
+        return 0;
+    }
+
     func->constants[func->const_count] = *c;
     return (uint8_t)func->const_count++;
 }
 
 static uint8_t add_global(const char* name) {
     uint16_t i;
+
+    if (current_chunk->has_error) return 0;
+
     for (i = 0; i < current_chunk->global_count; i++) {
         if (strcmp(current_chunk->globals[i], name) == 0) return (uint8_t)i;
     }
+
+    if (current_chunk->global_count >= MAX_GLOBALS) {
+        if (current_expr_node) {
+            compiler_fail_at_expr(current_expr_node, "Too many globals");
+        } else {
+            compiler_fail_at_stmt(current_stmt_node, "Too many globals");
+        }
+        return 0;
+    }
+
     current_chunk->globals[current_chunk->global_count] = ast_strdup(name);
     return (uint8_t)current_chunk->global_count++;
 }
@@ -444,6 +478,15 @@ static void compile_expr(Expr* expr);
 static void compile_stmt(Stmt* stmt);
 
 static uint16_t compile_function_body(const char* name, const char* self_name, IdentList* params, Block* body) {
+    if (current_chunk->func_count >= MAX_FUNCTIONS) {
+        if (current_expr_node) {
+            compiler_fail_at_expr(current_expr_node, "Too many functions");
+        } else {
+            compiler_fail_at_stmt(current_stmt_node, "Too many functions");
+        }
+        return 0;
+    }
+
     uint16_t func_idx = current_chunk->func_count++;
     BytecodeFunction* func = &current_chunk->functions[func_idx];
     ScopeContext scope;
@@ -525,6 +568,9 @@ static void compile_block(Block* block) {
 
     while (stmt) {
         compile_stmt(stmt);
+        if (current_chunk->has_error) {
+            return;
+        }
         stmt = stmt->next;
     }
 
@@ -537,8 +583,12 @@ static void compile_block(Block* block) {
 static void compile_expr(Expr* expr) {
     ExprList* arg;
     TableField* f;
+    const Expr* saved_expr = current_expr_node;
 
     if (!expr) return;
+    if (current_chunk->has_error) return;
+
+    current_expr_node = expr;
 
     switch (expr->type) {
         case EXPR_NIL:
@@ -567,6 +617,10 @@ static void compile_expr(Expr* expr) {
         } break;
         case EXPR_FUNCTION: {
             uint16_t func_idx = compile_function_body("<anon>", 0, expr->data.function.params, expr->data.function.body);
+            if (current_chunk->has_error) {
+                current_expr_node = saved_expr;
+                return;
+            }
             emit_function_value(func_idx);
         } break;
         case EXPR_VAR:
@@ -736,6 +790,8 @@ static void compile_expr(Expr* expr) {
         default:
             break;
     }
+
+    current_expr_node = saved_expr;
 }
 
 static int count_exprs(ExprList* exprs) {
@@ -757,7 +813,12 @@ static int collect_lvalues(LValueList* list, LValueList** items, int max_items) 
 }
 
 static void compile_stmt(Stmt* stmt) {
+    const Stmt* saved_stmt = current_stmt_node;
+
     if (!stmt) return;
+    if (current_chunk->has_error) return;
+
+    current_stmt_node = stmt;
 
     switch (stmt->type) {
         case STMT_ASSIGN: {
@@ -1064,6 +1125,8 @@ static void compile_stmt(Stmt* stmt) {
         default:
             break;
     }
+
+    current_stmt_node = saved_stmt;
 }
 
 void compiler_init(void) {
@@ -1081,6 +1144,8 @@ bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     current_chunk->error_line = 0;
     current_chunk->error_column = 0;
     current_chunk->error_msg[0] = '\0';
+    current_stmt_node = 0;
+    current_expr_node = 0;
 
     init_bytecode_function(&current_chunk->main, "main");
     analyze_function_body(&current_chunk->main, 0, 0, false, 0, ast_chunk ? ast_chunk->block : 0);
@@ -1095,6 +1160,23 @@ bool compiler_compile(Chunk* ast_chunk, CompiledChunk* out_chunk) {
     }
 
     compile_block(ast_chunk->block);
+    if (current_chunk->has_error) {
+        return false;
+    }
     emit_op(OP_HALT);
-    return true;
+    return !current_chunk->has_error;
+}
+
+static bool compiler_fail_at_stmt(const Stmt* stmt, const char* msg) {
+    if (stmt) {
+        return compiler_fail(stmt->line, stmt->column, msg);
+    }
+    return compiler_fail(0, 0, msg);
+}
+
+static bool compiler_fail_at_expr(const Expr* expr, const char* msg) {
+    if (expr) {
+        return compiler_fail(expr->line, expr->column, msg);
+    }
+    return compiler_fail(0, 0, msg);
 }

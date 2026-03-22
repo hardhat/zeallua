@@ -56,6 +56,8 @@ typedef struct TableField {
 
 struct Expr {
     ExprType type;
+    uint16_t line;
+    uint16_t column;
     union {
         bool boolean;
         int16_t number;
@@ -118,6 +120,8 @@ typedef enum {
 
 struct Stmt {
     StmtType type;
+    uint16_t line;
+    uint16_t column;
     union {
         struct { LValueList* lvars; ExprList* exprs; } assign;
         struct { IdentList* names; ExprList* exprs; } local;

@@ -13,6 +13,8 @@ static Stmt* parse_function_stmt(Parser* p);
 static void expr_to_lvalue(Parser* p, Expr* expr, LValue* out_lv);
 static ExprList* parse_args(Parser* p);
 
+static Parser* active_parser = 0;
+
 static void copy_string(char* dest, uint16_t capacity, const char* src) {
     uint16_t i = 0;
     if (capacity == 0) return;
@@ -138,19 +140,37 @@ void parser_init(Parser* p, Lexer* lex) {
 static Expr* new_expr(ExprType type) {
     Expr* e = (Expr*)ast_alloc(sizeof(Expr));
     e->type = type;
+    if (active_parser) {
+        e->line = active_parser->curr.line;
+        e->column = active_parser->curr.column;
+    } else {
+        e->line = 0;
+        e->column = 0;
+    }
     return e;
 }
 
 static Stmt* new_stmt(StmtType type) {
     Stmt* s = (Stmt*)ast_alloc(sizeof(Stmt));
     s->type = type;
+    if (active_parser) {
+        s->line = active_parser->curr.line;
+        s->column = active_parser->curr.column;
+    } else {
+        s->line = 0;
+        s->column = 0;
+    }
     s->next = 0;
     return s;
 }
 
 Chunk* parser_parse(Parser* p) {
     Chunk* chunk = (Chunk*)ast_alloc(sizeof(Chunk));
+
+    active_parser = p;
     chunk->block = parse_block(p);
+    active_parser = 0;
+
     if (!check(p, TOK_EOF)) {
         parser_set_error_at_current(p, "Unexpected token after chunk end");
     }

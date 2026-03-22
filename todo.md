@@ -89,8 +89,8 @@
 - [x] `diag_expected_expr`: parser error when an expression is required but a non-expression token is found.
 
 #### Planned: Compiler Diagnostic Source Positions (next pass)
-- [ ] Add `line` and `column` to `Expr` AST nodes in `src/ast.h`; stamp in parser.
-- [ ] Add `line` and `column` to `Stmt` AST nodes in `src/ast.h`; stamp in parser.
-- [ ] Route compiler-stage failures through `compiler_fail` with nearest statement position.
+- [x] Add `line` and `column` to `Expr` AST nodes in `src/ast.h`; stamp in parser.
+- [x] Add `line` and `column` to `Stmt` AST nodes in `src/ast.h`; stamp in parser.
+- [x] Route compiler-stage failures through `compiler_fail` with nearest statement position.
 - [ ] Add golden error tests for compile-time failures (e.g. too many locals, constant overflow).
 
