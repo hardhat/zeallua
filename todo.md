@@ -119,7 +119,7 @@
 - [ ] Implement the first Lua file functions in stages: start with whole-file helpers (`loadfile`, `dofile`, `readfile`, `writefile` if simpler), then grow into handle-based operations only if the VM representation stays tractable.
 	- [x] Added `readfile(path)` builtin using syscall-backed `open/read/close` in VM runtime.
 	- [x] Added `writefile(path, data)` builtin using syscall-backed `open/write/close` in VM runtime.
-	- [ ] Add `loadfile` / `dofile` semantics.
+	- [ ] (Deferred for tiny Lua) Skip `loadfile` / `dofile`: runtime and bytecode compiler are separate binaries, so in-runtime source compilation is out of scope for now.
 - [ ] If handle-based APIs are added, define a concrete file-handle representation in the runtime, ownership/lifetime rules, and how open descriptors are closed on script exit and runtime errors.
 - [ ] Add integration tests that compile and run Lua scripts performing file reads/writes against the host stub, then confirm equivalent behavior on Zeal hardware or emulator.
 	- [x] Added host-stub/ucsim regression for read path: `test/builtin_readfile.lua`.
