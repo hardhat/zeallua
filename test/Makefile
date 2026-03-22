@@ -27,10 +27,30 @@ DUMP_SYMBOL ?= global_vars
 DUMP_ADDR ?=
 DUMP_BYTES ?= 7
 DUMP_SPACE ?= rom
+STEP_COUNT ?=
+
+STDOUT_TESTS := print_stdout hello_world factorial_readme fibonacci_readme
+
+ifneq ($(filter $(TEST),$(STDOUT_TESTS)),)
+DUMP_ADDR := 0x0200
+
+endif
 
 ifeq ($(TEST),print_stdout)
-DUMP_ADDR := 0x0200
 DUMP_BYTES := 8
+endif
+
+ifeq ($(TEST),hello_world)
+DUMP_BYTES := 12
+endif
+
+ifeq ($(TEST),factorial_readme)
+DUMP_BYTES := 4
+endif
+
+ifeq ($(TEST),fibonacci_readme)
+DUMP_BYTES := 26
+STEP_COUNT := 2000000
 endif
 
 SUITE_TESTS := \
@@ -79,6 +99,9 @@ SUITE_TESTS := \
 	closure_nested_upvalue \
 	local_function \
 	print_stdout \
+	hello_world \
+	factorial_readme \
+	fibonacci_readme \
 	multiple_assignment \
 	mixed_table_literal \
 	string_key_content \
@@ -103,6 +126,7 @@ SUITE_TESTS := \
 	table_field_set \
 	table_string_index_get \
 	table_string_index_set \
+	table_example_core \
 	for_in_array \
 	for_in_empty \
 	else_taken \
@@ -202,7 +226,9 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 	fi; \
 	bss_start_hex=$$(awk '/^bss_start[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
-	if [ -n "$$bss_start_hex" ] && [ -n "$$bss_end_hex" ]; then \
+	if [ -n "$(STEP_COUNT)" ]; then \
+		step_count=$(STEP_COUNT); \
+	elif [ -n "$$bss_start_hex" ] && [ -n "$$bss_end_hex" ]; then \
 		step_count=$$((5000 + 10 * (0x$${bss_end_hex#0x} - 0x$${bss_start_hex#0x}))); \
 	else \
 		step_count=5000; \
@@ -217,8 +243,8 @@ $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
 	else \
 		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	fi; \
-	addr_lc=$$(printf '%s' "$$addr_hex" | tr 'A-F' 'a-f'); \
-	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < $(COMMANDS) | grep "^$$addr_lc " | sed 's/^0x[0-9a-f]\{4\} //' > $@
+	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < $(COMMANDS) | \
+		grep '^0x[0-9a-f]\{4\} ' | sed 's/^0x[0-9a-f]\{4\} //' > $@
 
 clean:
 	rm -rf out

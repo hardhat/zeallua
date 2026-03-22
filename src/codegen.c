@@ -399,8 +399,12 @@ static void emit_io_and_arithmetic_ops(void) {
     z80_ld_r_r(&enc, REG_A, REG_B); z80_or_a(&enc); z80_jp_cc_label(&enc, CC_Z, "vm_loop");
     z80_push(&enc, RP_BC);
     z80_call_label(&enc, "vstack_pop");
-    z80_cp_a_n(&enc, 2); // Number
-    z80_jp_cc_label(&enc, CC_NZ, "op_print_next");
+    z80_cp_a_n(&enc, TYPE_NUMBER);
+    z80_jp_cc_label(&enc, CC_Z, "op_print_number");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_call_label(&enc, "print_str");
+    z80_jp_label(&enc, "op_print_next");
+    z80_add_label(&enc, "op_print_number");
     z80_call_label(&enc, "print_num");
     z80_add_label(&enc, "op_print_next");
     z80_ld_rp_label(&enc, RP_HL, "str_newline"); z80_call_label(&enc, "print_str");
