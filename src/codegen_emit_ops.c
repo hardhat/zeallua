@@ -1448,9 +1448,43 @@ static void emit_table_ops(void) {
     z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
+    z80_add_label(&enc, "mark_table_roots_frame");
+    z80_ld_hl_mem_label(&enc, "fp_ptr");
+    z80_ld_de_mem_label(&enc, "vsp_ptr");
+    z80_add_label(&enc, "mark_table_roots_frame_loop");
+    z80_push(&enc, RP_HL);
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_roots_frame_done");
+    z80_pop(&enc, RP_HL);
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_frame_next");
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "mark_table_reachable");
+    z80_add_label(&enc, "mark_table_roots_frame_next");
+    z80_pop(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_jr_label(&enc, "mark_table_roots_frame_loop");
+
+    z80_add_label(&enc, "mark_table_roots_frame_done");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
     z80_add_label(&enc, "mark_table_roots");
     z80_call_label(&enc, "mark_table_roots_globals");
     z80_call_label(&enc, "mark_table_roots_vstack");
+    z80_call_label(&enc, "mark_table_roots_frame");
     z80_call_label(&enc, "mark_table_roots_current_env");
     z80_call_label(&enc, "mark_table_roots_current_closure");
     z80_ret(&enc);
