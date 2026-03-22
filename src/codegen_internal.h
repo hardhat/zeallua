@@ -13,6 +13,7 @@
 #define TABLE_CAPACITY 8
 #define TABLE_ENTRY_SIZE 6
 #define TABLE_SIZE (4 + (TABLE_CAPACITY * TABLE_ENTRY_SIZE))
+#define TABLE_RECLAIM_QUEUE_CAP 64
 #define STRING_HEADER_BYTES 2
 #define FUNCTION_HEADER_BYTES 6
 /* Phase 8 baseline budget within default 48K mapped RAM. */

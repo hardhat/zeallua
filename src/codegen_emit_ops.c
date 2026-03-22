@@ -1363,6 +1363,93 @@ static void emit_table_ops(void) {
     z80_ld_mem_hl_label(&enc, "free_table_list");   /* free_table_list = HL */
     z80_ret(&enc);
 
+    /* Queue a table pointer for deferred reclaim. This is non-intrusive:
+     * the table object is not modified until a future mark phase proves it
+     * unreachable and calls gc_sweep_deferred_tables. Input: HL=table ptr. */
+    z80_add_label(&enc, "queue_table_reclaim_candidate");
+    z80_ld_mem_hl_label(&enc, "table_reclaim_candidate");
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_C, REG_A);
+    z80_inc_r(&enc, REG_A);
+    z80_cp_a_n(&enc, TABLE_RECLAIM_QUEUE_CAP);
+    z80_jr_cc_label(&enc, CC_NZ, "queue_table_reclaim_no_wrap");
+    z80_xor_a(&enc);
+    z80_add_label(&enc, "queue_table_reclaim_no_wrap");
+    z80_ld_r_r(&enc, REG_B, REG_A);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
+    z80_ld_a_hl(&enc);
+    z80_cp_a_r(&enc, REG_B);
+    z80_jr_cc_label(&enc, CC_Z, "queue_table_reclaim_full");
+
+    z80_ld_r_r(&enc, REG_L, REG_C);
+    z80_ld_r_n(&enc, REG_H, 0);
+    z80_add_hl_rp(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_DE, "pending_table_reclaim_buf");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_de_mem_label(&enc, "table_reclaim_candidate");
+    z80_ld_r_r(&enc, REG_M, REG_E);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
+    z80_ld_hl_a(&enc);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "queue_table_reclaim_full");
+    z80_ld_hl_mem_label(&enc, "pending_table_reclaim_drop_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "pending_table_reclaim_drop_count");
+    z80_ret(&enc);
+
+    /* Sweep deferred table candidates after a mark phase has identified
+     * unreachable objects. For now this blindly reclaims queued entries and
+     * is intended to be called only by future mark/sweep plumbing. */
+    z80_add_label(&enc, "gc_sweep_deferred_tables");
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_C, REG_A);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
+    z80_ld_a_hl(&enc);
+    z80_cp_a_r(&enc, REG_C);
+    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_done");
+
+    z80_ld_r_r(&enc, REG_A, REG_C);
+    z80_inc_r(&enc, REG_A);
+    z80_cp_a_n(&enc, TABLE_RECLAIM_QUEUE_CAP);
+    z80_jr_cc_label(&enc, CC_NZ, "gc_sweep_deferred_tables_next_ready");
+    z80_xor_a(&enc);
+    z80_add_label(&enc, "gc_sweep_deferred_tables_next_ready");
+    z80_ld_r_r(&enc, REG_B, REG_A);
+
+    z80_ld_r_r(&enc, REG_L, REG_C);
+    z80_ld_r_n(&enc, REG_H, 0);
+    z80_add_hl_rp(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_DE, "pending_table_reclaim_buf");
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "gc_sweep_deferred_tables_has_ptr");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "gc_sweep_deferred_tables_store_head");
+
+    z80_add_label(&enc, "gc_sweep_deferred_tables_has_ptr");
+    z80_call_label(&enc, "free_table_object");
+
+    z80_add_label(&enc, "gc_sweep_deferred_tables_store_head");
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
+    z80_ld_hl_a(&enc);
+    z80_jr_label(&enc, "gc_sweep_deferred_tables");
+
+    z80_add_label(&enc, "gc_sweep_deferred_tables_done");
+    z80_ret(&enc);
+
     z80_add_label(&enc, "op_newtable");
     z80_call_label(&enc, "alloc_table_object");
     z80_ld_r_r(&enc, REG_A, REG_H);

@@ -151,7 +151,7 @@
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
 - [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; safe free/recycle wiring still pending reachability tracking)
-- [ ] Step 4: lightweight non-moving mark/sweep GC.
+- [ ] Step 4: lightweight non-moving mark/sweep GC. (deferred table reclaim queue + gc_sweep_deferred_tables helper added; root marking/reachability still pending)
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + richer diagnostics in progress)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
@@ -174,5 +174,6 @@
 - [ ] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
+- [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; mark integration pending)
 - [ ] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free).
 - [~] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators. (allocator counters and watermark symbols are present; runtime updates being wired)

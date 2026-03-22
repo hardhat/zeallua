@@ -368,6 +368,11 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "alloc_closure_fail_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "alloc_total_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_table_list"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "table_reclaim_candidate"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "pending_table_reclaim_head"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "pending_table_reclaim_tail"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "pending_table_reclaim_drop_count"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "pending_table_reclaim_buf"); for (i = 0; i < (TABLE_RECLAIM_QUEUE_CAP * 2); i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "free_string_small_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_string_medium_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_string_large_list"); z80_emit_w(&enc, 0);
