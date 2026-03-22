@@ -97,3 +97,34 @@
 	- [x] Add `diag_overflow_constants` golden for `Too many constants` compiler limit.
 	- [x] Add `diag_overflow_globals` golden for `Too many globals` compiler limit.
 
+### Phase 7.5: Zeal 8-bit OS integration [PLANNED]
+
+#### Native Builtin Surface
+- [ ] Replace the current ad hoc compiler special-cases for `print`, `type`, `tostring`, and `tonumber` with a shared native-builtin dispatch path so more Zeal-facing functions can be added without growing one-off code in `compiler.c`.
+- [ ] Define the first supported OS-facing Lua API surface and keep it intentionally small: `print`, `input`, file-loading helpers (`loadfile` / `dofile` or equivalent), and a minimal file API for open/read/write/close.
+- [ ] Decide how native functions are represented at runtime: builtin opcode IDs, builtin table entries, or predeclared globals resolved by symbol ID instead of repeated string compares.
+
+#### Console Input
+- [ ] Add a Zeal stdin helper on top of `read(DEV_STDIN, ...)` with host-stub parity so the same Lua entry points work both on Zeal and on the host test path.
+- [ ] Implement `input([prompt])` semantics: optionally print a prompt, read a line, strip trailing newline when present, and return a Lua string or `nil` on EOF/error.
+- [ ] Add regression coverage for empty input, long input truncation/bounds, and prompt + response behavior.
+
+#### File Access
+- [ ] Add a runtime wrapper layer around `open`, `read`, `write`, and `close` that normalizes Zeal error handling and keeps syscall details out of the VM core.
+- [ ] Implement the first Lua file functions in stages: start with whole-file helpers (`loadfile`, `dofile`, `readfile`, `writefile` if simpler), then grow into handle-based operations only if the VM representation stays tractable.
+- [ ] If handle-based APIs are added, define a concrete file-handle representation in the runtime, ownership/lifetime rules, and how open descriptors are closed on script exit and runtime errors.
+- [ ] Add integration tests that compile and run Lua scripts performing file reads/writes against the host stub, then confirm equivalent behavior on Zeal hardware or emulator.
+
+#### Paged Video Memory Writes
+- [ ] Add a low-level paged-memory copy helper for Zeal video access that takes the destination page explicitly, disables interrupts, maps that page into the low 16K window, copies bytes, restores the original mapping, and re-enables interrupts.
+- [ ] Mirror the `zvb_gfx.c` approach for page switching: save the current low-page mapping first, perform the temporary remap only for the copy window, then restore it unconditionally on every exit path.
+- [ ] Provide both copy and fill helpers so higher-level Lua APIs can write strings and byte/tile tables without duplicating MMU/interrupt handling at each call site.
+- [ ] Keep the source buffer outside the remapped low 16K window and document the calling convention clearly, since the OS normally occupies that area and an in-window source would alias the destination during the remap.
+- [ ] Decide the first Lua-visible video API shape: a minimal `screen.write(page, addr, data)`/`screen.fill(...)` pair is likely simpler than exposing raw MMU details directly to scripts.
+- [ ] Support writing either Lua strings or numeric byte tables by validating and flattening table contents before entering the interrupt-disabled copy section.
+- [ ] Add bounds checks for page, offset, and length so invalid writes fail in Lua space instead of corrupting memory.
+
+#### Examples, Docs, and Validation
+- [ ] Add example scripts covering console input, file read/write, and video-memory writes.
+- [ ] Document the supported Zeal-specific Lua API, especially what is intentionally non-standard versus Lua 5.1.
+- [ ] Add a focused test matrix for host, emulator, and real hardware so syscall-backed features can be verified independently from the compiler pipeline.
