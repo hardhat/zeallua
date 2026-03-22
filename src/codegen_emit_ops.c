@@ -1352,6 +1352,17 @@ static void emit_table_ops(void) {
     z80_call_label(&enc, "note_alloc_addr");
     z80_ret(&enc);
 
+    /* Recycle a table object back to the free list.
+     * Input: HL = table pointer to reclaim. Preserves all registers except F. */
+    z80_add_label(&enc, "free_table_object");
+    z80_ld_de_mem_label(&enc, "free_table_list");   /* DE = current free list head */
+    z80_ld_r_r(&enc, REG_M, REG_E);                /* (HL)   = lo of old head */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);                /* (HL+1) = hi of old head */
+    z80_dec_rp(&enc, RP_HL);                        /* restore HL to table base */
+    z80_ld_mem_hl_label(&enc, "free_table_list");   /* free_table_list = HL */
+    z80_ret(&enc);
+
     z80_add_label(&enc, "op_newtable");
     z80_call_label(&enc, "alloc_table_object");
     z80_ld_r_r(&enc, REG_A, REG_H);

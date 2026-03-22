@@ -150,7 +150,7 @@
 ### Scope (Approved)
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
-- [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free/recycle path still pending)
+- [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; safe free/recycle wiring still pending reachability tracking)
 - [ ] Step 4: lightweight non-moving mark/sweep GC.
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + richer diagnostics in progress)
 - [ ] Step 6 (banked SRAM object storage) deferred.
