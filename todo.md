@@ -151,8 +151,8 @@
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
 - [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
 - [ ] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop now stages table reclaim candidates; safe reclaim still pending mark/reachability)
-- [ ] Step 4: lightweight non-moving mark/sweep GC. (table mark-bit support added; root scan now covers globals, value stack, active frame locals, current_env cells, and current_closure captured cells; deterministic cycle prep now clears table marks + resets mark/sweep counters before root marking; threshold-trigger wiring added at allocator side; sweep remains gated by gc_sweep_enabled for soft triggers)
-- [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table counters added; soft/force trigger counters added)
+- [ ] Step 4: lightweight non-moving mark/sweep GC. (table mark-bit support added; root scan now covers globals, value stack, active frame locals, current_env cells, current_closure captured cells, and all saved env/closure ptrs in every caller frame on the call stack; deterministic cycle prep now clears table marks + resets mark/sweep counters before root marking; threshold-trigger wiring added at allocator side; sweep remains gated by gc_sweep_enabled for soft triggers)
+- [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table counters added; soft/force trigger counters added; gc_cycle_count added)
 - [ ] Step 6 (banked SRAM object storage) deferred.
 
 ### Concrete 48K Working-RAM Budget Target

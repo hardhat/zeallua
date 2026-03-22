@@ -1497,6 +1497,66 @@ static void emit_table_ops(void) {
     z80_call_label(&enc, "mark_table_roots_frame");
     z80_call_label(&enc, "mark_table_roots_current_env");
     z80_call_label(&enc, "mark_table_roots_current_closure");
+    z80_call_label(&enc, "mark_table_roots_cstack");
+    z80_ret(&enc);
+
+    /* mark_table_roots_cstack: scans saved env/closure ptrs in every caller frame
+       on the call stack so that tables referenced by callers are also treated as roots.
+       Each frame is 10 bytes (5 x push_hl): [closure_ptr][env_ptr][cp_ptr][fp_ptr][pc_ptr]
+       We temporarily substitute current_closure_ptr / current_env_ptr and reuse the
+       existing per-frame scanners, then restore the originals before returning. */
+    z80_add_label(&enc, "mark_table_roots_cstack");
+    /* Save live current_closure_ptr and current_env_ptr */
+    z80_ld_hl_mem_label(&enc, "current_closure_ptr");
+    z80_ld_mem_hl_label(&enc, "cstack_scan_closure_temp");
+    z80_ld_hl_mem_label(&enc, "current_env_ptr");
+    z80_ld_mem_hl_label(&enc, "cstack_scan_env_temp");
+    /* Walk from csp_ptr up to callstack_end (each frame = 10 bytes, cstack grows down) */
+    z80_ld_hl_mem_label(&enc, "csp_ptr");              /* HL = current top of cstack */
+    z80_ld_rp_label(&enc, RP_DE, "callstack_end");     /* DE = high-address boundary */
+    z80_add_label(&enc, "mrcs_loop");
+    /* Exit when HL == DE (no more frames) */
+    z80_ld_r_r(&enc, REG_A, REG_H); z80_cp_a_r(&enc, REG_D);
+    z80_jr_cc_label(&enc, CC_NZ, "mrcs_frame");
+    z80_ld_r_r(&enc, REG_A, REG_L); z80_cp_a_r(&enc, REG_E);
+    z80_jr_cc_label(&enc, CC_Z, "mrcs_done");
+    z80_add_label(&enc, "mrcs_frame");
+    /* Read frame[0..1] = saved closure_ptr (lo byte first, then hi byte) */
+    z80_push(&enc, RP_DE);                             /* save boundary on stack */
+    z80_ld_r_r(&enc, REG_E, REG_M); z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M); z80_inc_rp(&enc, RP_HL);
+    /* Install frame closure_ptr as current_closure_ptr (DE holds it, swap via HL) */
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "current_closure_ptr");
+    z80_ex_de_hl(&enc);
+    /* Read frame[2..3] = saved env_ptr */
+    z80_ld_r_r(&enc, REG_E, REG_M); z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M); z80_inc_rp(&enc, RP_HL);
+    /* Install frame env_ptr as current_env_ptr */
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "current_env_ptr");
+    z80_ex_de_hl(&enc);
+    /* Advance HL past remaining 6 bytes of frame (cp_ptr, fp_ptr, pc_ptr) */
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL); z80_inc_rp(&enc, RP_HL);
+    /* Save HL (next frame start), pop boundary back into DE */
+    z80_ld_mem_hl_label(&enc, "cstack_frame_temp");
+    z80_pop(&enc, RP_DE);
+    /* Scan closure upvalue captured cells (uses current_closure_ptr) */
+    z80_call_label(&enc, "mark_table_roots_current_closure");
+    /* Scan env local cells (uses current_env_ptr + current_closure_ptr for count) */
+    z80_call_label(&enc, "mark_table_roots_current_env");
+    /* Restore HL (next frame) and DE (boundary) for next iteration */
+    z80_ld_hl_mem_label(&enc, "cstack_frame_temp");
+    z80_ld_rp_label(&enc, RP_DE, "callstack_end");
+    z80_jr_label(&enc, "mrcs_loop");
+    z80_add_label(&enc, "mrcs_done");
+    /* Restore live current_closure_ptr and current_env_ptr */
+    z80_ld_hl_mem_label(&enc, "cstack_scan_closure_temp");
+    z80_ld_mem_hl_label(&enc, "current_closure_ptr");
+    z80_ld_hl_mem_label(&enc, "cstack_scan_env_temp");
+    z80_ld_mem_hl_label(&enc, "current_env_ptr");
     z80_ret(&enc);
 
     z80_add_label(&enc, "mark_table_cell"); /* HL = cell ptr [value_lo][value_hi][type] */
@@ -1683,6 +1743,9 @@ static void emit_table_ops(void) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "gc_run_sweep_cycle");
+    z80_ld_hl_mem_label(&enc, "gc_cycle_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_cycle_count");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_mem_hl_label(&enc, "gc_mark_table_count");
     z80_ld_mem_hl_label(&enc, "gc_sweep_table_count");

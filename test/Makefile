@@ -109,7 +109,7 @@ endif
 
 ifeq ($(TEST),gc_trigger_counters)
 DUMP_SYMBOL := gc_trigger_force_count
-DUMP_BYTES := 2
+DUMP_BYTES := 4
 STEP_COUNT := 2000000
 endif
 
