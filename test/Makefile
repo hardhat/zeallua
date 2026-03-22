@@ -107,6 +107,12 @@ DUMP_SYMBOL := pending_table_reclaim_dropcnt
 DUMP_BYTES := 2
 endif
 
+ifeq ($(TEST),gc_trigger_counters)
+DUMP_SYMBOL := gc_trigger_force_count
+DUMP_BYTES := 2
+STEP_COUNT := 2000000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -194,6 +200,7 @@ SUITE_TESTS := \
 	table_mark_roots_counter \
 	table_reclaim_queue_smoke \
 	table_reclaim_queue_overflow \
+	gc_trigger_counters \
 	table_example_core \
 	for_in_array \
 	for_in_empty \

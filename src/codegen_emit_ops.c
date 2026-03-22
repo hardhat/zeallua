@@ -1785,7 +1785,15 @@ static void emit_table_ops(void) {
 
     z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_only");
     z80_pop(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_B, REG_A);
+    z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
+    z80_ld_a_hl(&enc);
+    z80_cp_a_r(&enc, REG_B);
+    z80_jr_cc_label(&enc, CC_Z, "maybe_gc_tables_on_alloc_soft_done");
     z80_call_label(&enc, "gc_sweep_deferred_tables");
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_done");
     z80_ret(&enc);
 
     z80_add_label(&enc, "maybe_gc_tables_on_alloc_no_trigger");
