@@ -1,0 +1,1 @@
+diag_expected_do.lua:2:3: error: Expected TOK_DO, got TOK_IDENT

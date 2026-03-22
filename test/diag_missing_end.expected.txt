@@ -1,0 +1,1 @@
+diag_missing_end.lua:3:1: error: Expected TOK_END, got TOK_EOF

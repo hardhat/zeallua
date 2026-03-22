@@ -40,15 +40,15 @@
 - [x] Implement short-circuit logic operators (`AND`, `OR`).
 - [x] Implement basic function definitions, calls, and returns (without closures).
 - [x] Implement trailing BSS emission with startup zeroing for generated binaries.
-- [ ] Test on actual Zeal-8-bit-OS hardware.
+- [X] Test on actual Zeal-8-bit-OS hardware.
 
-### Phase 6: Coverage Gaps & Remaining Runtime Work [PLANNED]
+### Phase 6: Coverage Gaps & Remaining Runtime Work
 
 #### Missing Test Coverage
 - [x] Add regression for multiple assignment (`a, b = 1, 2`).
 - [x] Add regression for mixed table literals containing both array and named fields in the same literal.
 - [x] Add regression proving string keys compare by content across distinct string literals, not only reused constants.
-- [ ] Add output-oriented regression coverage for `print(...)` semantics if stdout validation is still desired.
+- [X] Add output-oriented regression coverage for `print(...)` semantics if stdout validation is still desired.
 
 #### Missing Implementation
 - [x] Implement exponentiation (`^`) in the VM/runtime.
@@ -62,9 +62,35 @@
 - [x] Implement length operator (`#`) in the VM/runtime.
 - [x] Implement built-ins `type`, `tostring`, and `tonumber`.
 - [x] Implement closures and upvalue capture for nested functions.
-- [ ] Decide whether to remove or downgrade unsupported feature claims in `README.md` until the above items exist.
 
-## Next Steps
-1. Decide whether stdout-oriented `print(...)` regression coverage is still needed, and add it if so.
-2. Decide whether to remove or downgrade unsupported feature claims in `README.md` until the remaining gaps are resolved.
-3. Test on actual Zeal-8-bit-OS hardware.
+### Phase 7: Diagnostics & Error Reporting [IN PROGRESS]
+
+#### Structured Diagnostic Positions
+- [x] Add `column` field to `Token` struct (`src/token.h`).
+- [x] Add `column` cursor to `Lexer` struct (`src/lexer.h`); initialize to 1, increment per char consumed, reset to 1 on newline.
+- [x] Stamp correct `line` and `column` on all token types (numbers, identifiers, strings, punctuation, `TOK_EOF`, `TOK_ERROR`) in `src/lexer.c`.
+- [x] Add `error_line` and `error_column` fields to `Parser` struct (`src/parser.h`).
+- [x] Add centralized `parser_set_error` / `parser_set_error_at_current` / `parser_set_expected_error` helpers in `src/parser.c`.
+- [x] Replace all bare `p->has_error = true` sites in `src/parser.c` with helper calls carrying descriptive messages.
+- [x] Propagate `TOK_ERROR` from lexer into parser diagnostic fields on `advance()` and in `parser_init`.
+- [x] Add `has_error`, `error_line`, `error_column`, `error_msg` to `CompiledChunk` (`src/compiler.h`).
+- [x] Add `compiler_fail` helper in `src/compiler.c`; wire silent `return false` to it where input is invalid.
+- [x] Standardize `src/main.c` error output to `file:line:column: error: message` format.
+- [x] Update `src/host_test_lexer.c` to emit the same diagnostic format.
+
+#### Golden Regression Tests for Diagnostics
+- [x] Add `check-diag-%` Makefile target for compiler-output golden tests (no ucsim).
+- [x] `diag_unterminated_string`: lexer error for unterminated string literal.
+- [x] `diag_unexpected_char`: lexer error for unknown character (`@`).
+- [x] `diag_tilde_without_eq`: lexer error for `~` not followed by `=`.
+- [x] `diag_missing_end`: parser expected-token error when `end` is absent.
+- [x] `diag_expected_then`: parser error when `then` keyword is missing after `if` condition.
+- [x] `diag_expected_do`: parser error when `do` keyword is missing after `while` condition.
+- [x] `diag_expected_expr`: parser error when an expression is required but a non-expression token is found.
+
+#### Planned: Compiler Diagnostic Source Positions (next pass)
+- [ ] Add `line` and `column` to `Expr` AST nodes in `src/ast.h`; stamp in parser.
+- [ ] Add `line` and `column` to `Stmt` AST nodes in `src/ast.h`; stamp in parser.
+- [ ] Route compiler-stage failures through `compiler_fail` with nearest statement position.
+- [ ] Add golden error tests for compile-time failures (e.g. too many locals, constant overflow).
+

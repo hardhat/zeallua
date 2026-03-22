@@ -1,0 +1,1 @@
+diag_unexpected_char.lua:1:5: error: Unexpected character

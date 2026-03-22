@@ -1,0 +1,1 @@
+diag_unterminated_string.lua:1:11: error: Unterminated string

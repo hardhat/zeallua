@@ -1,0 +1,1 @@
+diag_expected_then.lua:2:3: error: Expected TOK_THEN, got TOK_IDENT

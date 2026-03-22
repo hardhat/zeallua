@@ -1,0 +1,1 @@
+diag_tilde_without_eq.lua:1:5: error: Unexpected character '~'

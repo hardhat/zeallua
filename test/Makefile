@@ -164,13 +164,38 @@ SUITE_TESTS := \
 SUITE_CHECK_TARGETS := $(addprefix check-,$(subst _,-,$(SUITE_TESTS)))
 SUITE_RUN_TARGETS := $(addprefix run-,$(subst _,-,$(SUITE_TESTS)))
 
+DIAG_TESTS := \
+	diag_unterminated_string \
+	diag_unexpected_char \
+	diag_tilde_without_eq \
+	diag_missing_end \
+	diag_expected_then \
+	diag_expected_do \
+	diag_expected_expr
+
+# check-diag-<name> targets: strip the diag_ prefix, convert _ to - for target names
+DIAG_SUITE_CHECK_TARGETS := $(addprefix check-diag-,$(subst _,-,$(patsubst diag_%,%,$(DIAG_TESTS))))
+
 .PHONY: all run check suite clean FORCE
 
 .SILENT: suite check run out $(STUB_BIN) $(STUB_IHX) $(PROGRAM_BIN) $(PROGRAM_SIM_BIN) $(PROGRAM_IHX) $(COMMANDS) $(ACTUAL) clean
 
 all: suite
 
-suite: $(SUITE_CHECK_TARGETS)
+suite: $(SUITE_CHECK_TARGETS) $(DIAG_SUITE_CHECK_TARGETS)
+
+# check-diag-% must appear before check-% so the longer prefix takes precedence
+check-diag-%: FORCE
+	@actual=$$($(HOST_COMPILER) diag_$(subst -,_,$*).lua 2>&1 || true); \
+	expected=$$(tr -d '\r' < diag_$(subst -,_,$*).expected.txt); \
+	if [ "$$actual" = "$$expected" ]; then \
+		printf 'PASS %s\n' 'diag_$(subst -,_,$*)'; \
+	else \
+		printf 'FAIL %s\n' 'diag_$(subst -,_,$*)' >&2; \
+		printf 'Expected: [%s]\n' "$$expected" >&2; \
+		printf 'Actual:   [%s]\n' "$$actual" >&2; \
+		exit 1; \
+	fi
 
 check-%: FORCE
 	$(MAKE) check TEST=$(subst -,_,$*)

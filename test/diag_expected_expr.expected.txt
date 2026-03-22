@@ -1,0 +1,1 @@
+diag_expected_expr.lua:1:5: error: Expected expression
