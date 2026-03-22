@@ -7,7 +7,7 @@
 #endif
 #include <string.h>
 
-#define MAX_IMAGE_SIZE 16384
+#define MAX_IMAGE_SIZE 49152
 static uint8_t image[MAX_IMAGE_SIZE];
 
 static bool find_label_addr(const Z80Encoder* e, const char* name, uint16_t* addr_out) {
