@@ -355,6 +355,7 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "tonumber_remaining"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "tonumber_result"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "tonumber_negative"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "readfile_dev"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "tostring_negative"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "heap_ptr"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_temp"); z80_emit_w(&enc, 0);

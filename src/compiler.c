@@ -641,6 +641,17 @@ static bool compile_builtin_call(Expr* expr) {
         return true;
     }
 
+    if (strcmp(name, "readfile") == 0) {
+        if (arg_count != 1) {
+            compiler_fail_at_expr(expr, "readfile expects exactly 1 argument");
+            return true;
+        }
+
+        compile_expr(expr->data.call.args->expr);
+        emit_op(OP_READFILE);
+        return true;
+    }
+
     return false;
 }
 

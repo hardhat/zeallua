@@ -154,6 +154,13 @@ static void emit_stack_and_closure_ops(void) {
     z80_call_label(&enc, "vstack_push");
     z80_jp_label(&enc, "vm_loop");
 
+    z80_add_label(&enc, "op_readfile");
+    z80_call_label(&enc, "vstack_pop");
+    z80_call_label(&enc, "coerce_to_string");
+    z80_call_label(&enc, "read_file_string");
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
     z80_add_label(&enc, "op_concat");
     z80_call_label(&enc, "vstack_pop");
     z80_call_label(&enc, "coerce_to_string");
@@ -644,6 +651,57 @@ static void emit_print_and_string_ops(void) {
     z80_ld_r_n(&enc, REG_A, TYPE_STRING);
     z80_ret(&enc);
     z80_add_label(&enc, "read_line_string_nil");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_r_n(&enc, REG_A, TYPE_NIL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "read_file_string");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_C, REG_L);
+    z80_ld_r_r(&enc, REG_B, REG_H);
+    z80_ld_rp_nn(&enc, RP_HL, 0x0002);
+    z80_rst(&enc, 0x08);
+    z80_cp_a_n(&enc, 0x80);
+    z80_jr_cc_label(&enc, CC_NC, "read_file_string_fail");
+    z80_ld_rp_label(&enc, RP_HL, "readfile_dev");
+    z80_ld_hl_a(&enc);
+
+    z80_ld_r_r(&enc, REG_H, REG_A);
+    z80_ld_r_n(&enc, REG_L, 0);
+    z80_ld_rp_label(&enc, RP_DE, "input_buffer");
+    z80_ld_rp_nn(&enc, RP_BC, 63);
+    z80_rst(&enc, 0x08);
+    z80_push(&enc, RP_AF);
+
+    z80_ld_rp_label(&enc, RP_HL, "readfile_dev");
+    z80_ld_a_hl(&enc);
+    z80_ld_r_r(&enc, REG_H, REG_A);
+    z80_ld_r_n(&enc, REG_L, 3);
+    z80_rst(&enc, 0x08);
+
+    z80_pop(&enc, RP_AF);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "read_file_string_fail");
+    z80_ld_r_r(&enc, REG_A, REG_B);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "read_file_string_make");
+    z80_ld_r_r(&enc, REG_A, REG_C);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "read_file_string_make");
+    z80_ld_rp_label(&enc, RP_HL, "str_empty");
+    z80_ld_r_n(&enc, REG_A, TYPE_STRING);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "read_file_string_make");
+    z80_ld_r_r(&enc, REG_D, REG_B);
+    z80_ld_r_r(&enc, REG_E, REG_C);
+    z80_ld_rp_label(&enc, RP_HL, "input_buffer");
+    z80_call_label(&enc, "alloc_raw_string");
+    z80_ld_r_n(&enc, REG_A, TYPE_STRING);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "read_file_string_fail");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_r_n(&enc, REG_A, TYPE_NIL);
     z80_ret(&enc);

@@ -1,0 +1,1 @@
+print(readfile("hello.txt"))

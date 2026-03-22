@@ -8,30 +8,39 @@
 _syscall:
     ld a, l
     cp 0            ; read(dev=H, buf=DE, size=BC)
-    jr z, _sys_read
+    jp z, _sys_read
+    cp 2            ; open(path=BC, flags=H)
+    jp z, _sys_open
+    cp 3            ; close(dev=H)
+    jp z, _sys_close
     cp 15           ; exit(retval in H)
-    jr z, _sys_exit
+    jp z, _sys_exit
     cp 1            ; write(dev=H, buf=DE, size=BC)
-    jr z, _sys_write
+    jp z, _sys_write
     xor a
     ret
 
 _sys_read:
-    ld a, h         ; Only provide stdin
+    ld a, h
     cp 1
-    jr nz, _sys_read_empty
+    jr z, _sys_read_stdin
+    cp 2
+    jr z, _sys_read_file
+    jr _sys_read_empty
+
+_sys_read_stdin:
     push de
     ld hl, 0
     ld (_read_count), hl
     ld hl, (_input_ptr)
 
-_sys_read_loop:
+_sys_read_stdin_loop:
     ld a, b
     or c
-    jr z, _sys_read_done
+    jr z, _sys_read_stdin_done
     ld a, (hl)
     or a
-    jr z, _sys_read_done
+    jr z, _sys_read_stdin_done
     ld (de), a
     inc de
     inc hl
@@ -41,10 +50,41 @@ _sys_read_loop:
     inc hl
     ld (_read_count), hl
     pop hl
-    jr _sys_read_loop
+    jr _sys_read_stdin_loop
 
-_sys_read_done:
+_sys_read_stdin_done:
     ld (_input_ptr), hl
+    ld bc, (_read_count)
+    pop de
+    xor a
+    ret
+
+_sys_read_file:
+    push de
+    ld hl, 0
+    ld (_read_count), hl
+    ld hl, (_file_ptr)
+
+_sys_read_file_loop:
+    ld a, b
+    or c
+    jr z, _sys_read_file_done
+    ld a, (hl)
+    or a
+    jr z, _sys_read_file_done
+    ld (de), a
+    inc de
+    inc hl
+    dec bc
+    push hl
+    ld hl, (_read_count)
+    inc hl
+    ld (_read_count), hl
+    pop hl
+    jr _sys_read_file_loop
+
+_sys_read_file_done:
+    ld (_file_ptr), hl
     ld bc, (_read_count)
     pop de
     xor a
@@ -52,6 +92,35 @@ _sys_read_done:
 
 _sys_read_empty:
     ld bc, 0
+    xor a
+    ret
+
+_sys_open:
+    push bc
+    ld hl, _FILE_NAME
+_sys_open_cmp:
+    ld a, (bc)
+    cp (hl)
+    jr nz, _sys_open_fail
+    or a
+    jr z, _sys_open_ok
+    inc bc
+    inc hl
+    jr _sys_open_cmp
+
+_sys_open_ok:
+    pop bc
+    ld hl, _FILE_BUFFER
+    ld (_file_ptr), hl
+    ld a, 2
+    ret
+
+_sys_open_fail:
+    pop bc
+    ld a, 0xFF
+    ret
+
+_sys_close:
     xor a
     ret
 
@@ -93,6 +162,10 @@ _boot_up:
     ld sp, 0xFFFE
     ld hl, _OUTPUT_BUFFER
     ld (_output_ptr), hl
+    ld hl, _INPUT_BUFFER
+    ld (_input_ptr), hl
+    ld hl, _FILE_BUFFER
+    ld (_file_ptr), hl
     xor a
     ld (_OUTPUT_BUFFER), a
     jp 0x4000
@@ -112,3 +185,12 @@ _INPUT_BUFFER:
     defs 0x0200 - $, 0
 _OUTPUT_BUFFER:
     defs 256, 0
+
+_FILE_NAME:
+    db "hello.txt", 0
+
+_file_ptr:
+    dw _FILE_BUFFER
+
+_FILE_BUFFER:
+    db "Z80", 10, 0
