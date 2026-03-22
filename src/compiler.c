@@ -580,6 +580,70 @@ static void compile_block(Block* block) {
     }
 }
 
+static int count_exprs(ExprList* exprs) {
+    int count = 0;
+    while (exprs) {
+        count++;
+        exprs = exprs->next;
+    }
+    return count;
+}
+
+static bool compile_builtin_call(Expr* expr) {
+    const char* name;
+    int arg_count;
+
+    if (!expr || expr->type != EXPR_CALL || !expr->data.call.func || expr->data.call.func->type != EXPR_VAR) {
+        return false;
+    }
+
+    name = expr->data.call.func->data.var_name;
+    arg_count = count_exprs(expr->data.call.args);
+
+    if (strcmp(name, "print") == 0) {
+        ExprList* arg = expr->data.call.args;
+        while (arg) {
+            compile_expr(arg->expr);
+            arg = arg->next;
+        }
+        emit_op(OP_PRINT);
+        emit_byte((uint8_t)arg_count);
+        emit_op(OP_LOADNIL);
+        return true;
+    }
+
+    if (strcmp(name, "type") == 0 || strcmp(name, "tostring") == 0 || strcmp(name, "tonumber") == 0) {
+        if (arg_count > 1) {
+            compiler_fail_at_expr(expr, "Builtin expects at most 1 argument");
+            return true;
+        }
+
+        if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
+        else emit_op(OP_LOADNIL);
+
+        if (strcmp(name, "type") == 0) emit_op(OP_TYPE);
+        else if (strcmp(name, "tostring") == 0) emit_op(OP_TOSTRING);
+        else emit_op(OP_TONUMBER);
+        return true;
+    }
+
+    if (strcmp(name, "input") == 0) {
+        if (arg_count > 1) {
+            compiler_fail_at_expr(expr, "input expects at most 1 argument");
+            return true;
+        }
+
+        if (expr->data.call.args) {
+            compile_expr(expr->data.call.args->expr);
+        }
+        emit_op(OP_INPUT);
+        emit_byte((uint8_t)arg_count);
+        return true;
+    }
+
+    return false;
+}
+
 static void compile_expr(Expr* expr) {
     ExprList* arg;
     TableField* f;
@@ -727,35 +791,7 @@ static void compile_expr(Expr* expr) {
             }
             break;
         case EXPR_CALL:
-            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "print") == 0) {
-                uint8_t arg_count = 0;
-                arg = expr->data.call.args;
-                while (arg) {
-                    compile_expr(arg->expr);
-                    arg_count++;
-                    arg = arg->next;
-                }
-                emit_op(OP_PRINT);
-                emit_byte(arg_count);
-                emit_op(OP_LOADNIL);
-                return;
-            }
-            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "type") == 0) {
-                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
-                else emit_op(OP_LOADNIL);
-                emit_op(OP_TYPE);
-                return;
-            }
-            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "tostring") == 0) {
-                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
-                else emit_op(OP_LOADNIL);
-                emit_op(OP_TOSTRING);
-                return;
-            }
-            if (expr->data.call.func->type == EXPR_VAR && strcmp(expr->data.call.func->data.var_name, "tonumber") == 0) {
-                if (expr->data.call.args) compile_expr(expr->data.call.args->expr);
-                else emit_op(OP_LOADNIL);
-                emit_op(OP_TONUMBER);
+            if (compile_builtin_call(expr)) {
                 return;
             }
             compile_expr(expr->data.call.func);
@@ -792,15 +828,6 @@ static void compile_expr(Expr* expr) {
     }
 
     current_expr_node = saved_expr;
-}
-
-static int count_exprs(ExprList* exprs) {
-    int count = 0;
-    while (exprs) {
-        count++;
-        exprs = exprs->next;
-    }
-    return count;
 }
 
 static int collect_lvalues(LValueList* list, LValueList** items, int max_items) {

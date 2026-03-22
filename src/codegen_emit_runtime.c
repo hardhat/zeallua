@@ -371,6 +371,7 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "callstack_end");
     z80_add_label(&enc, "vstack_space"); for (i = 0; i < VSTACK_BYTES; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "vstack_end");
+    z80_add_label(&enc, "input_buffer"); for (i = 0; i < 64; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "num_buffer"); for (i = 0; i < 16; i++) z80_emit_b(&enc, 0);
     z80_add_label(&enc, "num_buffer_end"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "tmp_len"); z80_emit_w(&enc, 0);

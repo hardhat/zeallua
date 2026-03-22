@@ -60,6 +60,7 @@ typedef enum {
     OP_TYPE = 0xA1,
     OP_TONUMBER = 0xA2,
     OP_TOSTRING = 0xA3,
+    OP_INPUT = 0xA4,
 
     OP_HALT = 0xFF
 } OpCode;

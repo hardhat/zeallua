@@ -100,14 +100,16 @@
 ### Phase 7.5: Zeal 8-bit OS integration [PLANNED]
 
 #### Native Builtin Surface
-- [ ] Replace the current ad hoc compiler special-cases for `print`, `type`, `tostring`, and `tonumber` with a shared native-builtin dispatch path so more Zeal-facing functions can be added without growing one-off code in `compiler.c`.
+- [x] Replace the current ad hoc compiler special-cases for `print`, `type`, `tostring`, and `tonumber` with a shared native-builtin dispatch path so more Zeal-facing functions can be added without growing one-off code in `compiler.c`.
 - [ ] Define the first supported OS-facing Lua API surface and keep it intentionally small: `print`, `input`, file-loading helpers (`loadfile` / `dofile` or equivalent), and a minimal file API for open/read/write/close.
-- [ ] Decide how native functions are represented at runtime: builtin opcode IDs, builtin table entries, or predeclared globals resolved by symbol ID instead of repeated string compares.
+- [x] Decide how native functions are represented at runtime: builtin opcode IDs, builtin table entries, or predeclared globals resolved by symbol ID instead of repeated string compares.
 
 #### Console Input
-- [ ] Add a Zeal stdin helper on top of `read(DEV_STDIN, ...)` with host-stub parity so the same Lua entry points work both on Zeal and on the host test path.
-- [ ] Implement `input([prompt])` semantics: optionally print a prompt, read a line, strip trailing newline when present, and return a Lua string or `nil` on EOF/error.
+- [x] Add a Zeal stdin helper on top of `read(DEV_STDIN, ...)` with host-stub parity so the same Lua entry points work both on Zeal and on the host test path.
+- [x] Implement `input([prompt])` semantics: optionally print a prompt, read a line, strip trailing newline when present, and return a Lua string or `nil` on EOF/error.
 - [ ] Add regression coverage for empty input, long input truncation/bounds, and prompt + response behavior.
+	- [x] Prompt + response behavior covered by `test/builtin_input.lua`.
+	- [ ] Add explicit empty-input and truncation-focused cases.
 
 #### File Access
 - [ ] Add a runtime wrapper layer around `open`, `read`, `write`, and `close` that normalizes Zeal error handling and keeps syscall details out of the VM core.
