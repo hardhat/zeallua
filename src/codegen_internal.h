@@ -15,11 +15,12 @@
 #define TABLE_SIZE (4 + (TABLE_CAPACITY * TABLE_ENTRY_SIZE))
 #define STRING_HEADER_BYTES 2
 #define FUNCTION_HEADER_BYTES 6
-#define TABLE_HEAP_BYTES (TABLE_SIZE * 8)
-#define STRING_HEAP_BYTES 256
-#define CLOSURE_HEAP_BYTES 512
-#define CALL_STACK_BYTES 160
-#define VSTACK_BYTES 512
+/* Phase 8 baseline budget within default 48K mapped RAM. */
+#define TABLE_HEAP_BYTES 14336
+#define STRING_HEAP_BYTES 11264
+#define CLOSURE_HEAP_BYTES 2560
+#define CALL_STACK_BYTES 768
+#define VSTACK_BYTES 1536
 
 void make_indexed_label(char* dst, uint16_t cap, const char* prefix, uint16_t index);
 void make_two_index_label(char* dst, uint16_t cap, const char* prefix, uint16_t first, uint16_t second);

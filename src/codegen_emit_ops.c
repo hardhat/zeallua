@@ -616,6 +616,12 @@ static void emit_print_and_string_ops(void) {
     z80_pop(&enc, RP_HL);
     z80_ret(&enc);
     z80_add_label(&enc, "alloc_string_space_empty");
+    z80_ld_hl_mem_label(&enc, "alloc_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_fail_count");
+    z80_ld_hl_mem_label(&enc, "alloc_string_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_string_fail_count");
     z80_ld_rp_label(&enc, RP_HL, "str_empty");
     z80_ld_rp_nn(&enc, RP_DE, 0);
     z80_ret(&enc);
@@ -1232,23 +1238,88 @@ static void emit_numeric_and_misc_ops(void) {
 }
 
 static void emit_table_ops(void) {
-    z80_add_label(&enc, "op_newtable");
+    z80_add_label(&enc, "alloc_table_object");
+    z80_ld_hl_mem_label(&enc, "free_table_list");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_table_object_from_free");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "alloc_table_object_from_free");
+
     z80_ld_hl_mem_label(&enc, "heap_ptr");
     z80_push(&enc, RP_HL);
+    z80_ld_rp_nn(&enc, RP_DE, TABLE_SIZE);
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_DE, "heap_end");
+    z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
+    z80_jr_cc_label(&enc, CC_C, "alloc_table_object_heap_ok");
+    z80_jr_cc_label(&enc, CC_Z, "alloc_table_object_heap_ok");
+
+    z80_pop(&enc, RP_HL);
+    z80_pop(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "alloc_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_fail_count");
+    z80_ld_hl_mem_label(&enc, "alloc_table_fail_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_table_fail_count");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "alloc_table_object_heap_ok");
+    z80_pop(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "heap_ptr");
+    z80_pop(&enc, RP_HL);
+    z80_jr_label(&enc, "alloc_table_object_success");
+
+    z80_add_label(&enc, "alloc_table_object_from_free");
+    z80_ld_r_r(&enc, REG_D, REG_H);
+    z80_ld_r_r(&enc, REG_E, REG_L);
+    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);
+    z80_ld_r_r(&enc, REG_H, REG_B);
+    z80_ld_r_r(&enc, REG_L, REG_C);
+    z80_ld_mem_hl_label(&enc, "free_table_list");
+    z80_ex_de_hl(&enc);
+
+    z80_add_label(&enc, "alloc_table_object_success");
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "alloc_total_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_total_count");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "op_newtable");
+    z80_call_label(&enc, "alloc_table_object");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "newtable_alloc_ok");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "newtable_alloc_ok");
+    z80_ld_r_n(&enc, REG_A, TYPE_NIL);
+    z80_call_label(&enc, "vstack_push");
+    z80_jp_label(&enc, "vm_loop");
+
+    z80_add_label(&enc, "newtable_alloc_ok");
+    z80_push(&enc, RP_HL);
+    z80_ld_r_n(&enc, REG_B, TABLE_SIZE);
     z80_xor_a(&enc);
+    z80_add_label(&enc, "newtable_clear_loop");
     z80_ld_hl_a(&enc);
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_hl_a(&enc);
+    z80_djnz_label(&enc, "newtable_clear_loop");
+    z80_pop(&enc, RP_HL);
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_n(&enc, REG_A, TABLE_CAPACITY);
     z80_ld_hl_a(&enc);
-    z80_inc_rp(&enc, RP_HL);
-    z80_xor_a(&enc);
-    z80_ld_hl_a(&enc);
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_rp_nn(&enc, RP_DE, TABLE_CAPACITY * TABLE_ENTRY_SIZE);
-    z80_add_hl_rp(&enc, RP_DE);
-    z80_ld_mem_hl_label(&enc, "heap_ptr");
     z80_pop(&enc, RP_HL);
     z80_ld_r_n(&enc, REG_A, TYPE_TABLE);
     z80_call_label(&enc, "vstack_push");
