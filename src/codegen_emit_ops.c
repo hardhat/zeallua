@@ -647,7 +647,7 @@ static void emit_print_and_string_ops(void) {
     z80_jr_cc_label(&enc, CC_NZ, "alloc_string_space_non_empty");
     z80_ld_r_r(&enc, REG_A, REG_L);
     z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "alloc_string_space_empty");
+    z80_jp_cc_label(&enc, CC_Z, "alloc_string_space_empty");
     z80_add_label(&enc, "alloc_string_space_non_empty");
     /* --- try free list first (small/medium direct, large first-fit) --- */
     z80_ld_r_r(&enc, REG_A, REG_H);              /* HL = requested length */
@@ -665,7 +665,7 @@ static void emit_print_and_string_ops(void) {
     z80_jr_cc_label(&enc, CC_NZ, "ass_hit_small");
     z80_ld_r_r(&enc, REG_A, REG_L);
     z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* small list empty → bump */
+    z80_jp_cc_label(&enc, CC_Z, "ass_bump");     /* small list empty → bump */
     z80_add_label(&enc, "ass_hit_small");
     /* pop head: read [obj+3..4] (payload) = next ptr; update list head */
     z80_inc_rp(&enc, RP_HL);
@@ -691,7 +691,7 @@ static void emit_print_and_string_ops(void) {
     z80_jr_cc_label(&enc, CC_NZ, "ass_hit_medium");
     z80_ld_r_r(&enc, REG_A, REG_L);
     z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* medium list empty → bump */
+    z80_jp_cc_label(&enc, CC_Z, "ass_bump");     /* medium list empty → bump */
     z80_add_label(&enc, "ass_hit_medium");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
