@@ -181,7 +181,7 @@
 
 ### String Next Steps (Post-Stability)
 - [x] Remove disabled legacy string/allocator emission paths now that split emitter path is validated by full-suite pass.
-- [~] Implement short-string interning for constants/identifiers and intern-table lookup on concat/tostring allocation boundaries. (Memory allocated: 32-entry intern table with mark tracking; hash function complex in Z80, deferred to simpler hash-on-match approach or host-side pre-interning)
+- [~] Implement short-string interning for constants/identifiers and intern-table lookup on concat/tostring allocation boundaries. (host-side cross-function constant-pool string interning is now active; runtime concat/tostring allocation-boundary lookup still pending)
 - [ ] Extend string object metadata with cached hash and use it for fast string key compare in table get/set.
 - [ ] Add string free-list integrity checks (class membership + next-pointer sanity) behind a debug flag and run in host tests.
 - [ ] Add targeted string stress regressions: repeated local concat/tostring loops, mixed short/medium/large lifetimes, and forced-GC under low free space.

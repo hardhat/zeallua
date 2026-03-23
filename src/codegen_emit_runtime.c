@@ -1,5 +1,8 @@
 #include "codegen_internal.h"
 #include <string.h>
+#ifndef __SDCC
+#include <stdio.h>
+#endif
 
 static void emit_compare_ops(void) {
     z80_add_label(&enc, "op_eq");
@@ -275,19 +278,218 @@ static void emit_string_and_call_stack_helpers(void) {
     z80_ret(&enc);
 }
 
+static void make_const_string_label(char* dst, uint16_t cap, int16_t func_idx, uint16_t const_idx) {
+    if (func_idx < 0) {
+        make_indexed_label(dst, cap, "const_str_main_", const_idx);
+    } else {
+        make_two_index_label(dst, cap, "const_str_func_", (uint16_t)func_idx, const_idx);
+    }
+}
+
+static bool find_first_string_constant(
+    CompiledChunk* chunk,
+    int16_t func_idx,
+    uint16_t const_idx,
+    const char* text,
+    int16_t* first_func_idx,
+    uint16_t* first_const_idx
+) {
+    uint16_t i;
+    uint16_t f;
+
+    for (i = 0; i < chunk->main.const_count; i++) {
+        Constant* c = &chunk->main.constants[i];
+        if (func_idx < 0 && i >= const_idx) break;
+        if (c->type == CONST_STRING && strcmp(c->data.string, text) == 0) {
+            *first_func_idx = -1;
+            *first_const_idx = i;
+            return true;
+        }
+    }
+
+    for (f = 0; f < chunk->func_count; f++) {
+        BytecodeFunction* func = &chunk->functions[f];
+        uint16_t limit = func->const_count;
+        if ((int16_t)f > func_idx) break;
+        if ((int16_t)f == func_idx) limit = const_idx;
+        for (i = 0; i < limit; i++) {
+            Constant* c = &func->constants[i];
+            if (c->type == CONST_STRING && strcmp(c->data.string, text) == 0) {
+                *first_func_idx = (int16_t)f;
+                *first_const_idx = i;
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static void emit_function_constant_pool_interned(
+    CompiledChunk* chunk,
+    const char* pool_label,
+    int16_t func_idx,
+    BytecodeFunction* func
+) {
+    char label[32];
+    uint16_t i;
+
+    z80_add_label(&enc, pool_label);
+    for (i = 0; i < func->const_count; i++) {
+        Constant* c = &func->constants[i];
+        if (c->type == CONST_NUMBER) {
+            z80_emit_b(&enc, TYPE_NUMBER);
+            z80_emit_w(&enc, (uint16_t)c->data.number);
+        } else if (c->type == CONST_STRING) {
+            int16_t first_func_idx;
+            uint16_t first_const_idx;
+
+            z80_emit_b(&enc, TYPE_STRING);
+            if (find_first_string_constant(chunk, func_idx, i, c->data.string, &first_func_idx, &first_const_idx)) {
+                make_const_string_label(label, sizeof(label), first_func_idx, first_const_idx);
+            } else {
+                make_const_string_label(label, sizeof(label), func_idx, i);
+            }
+            z80_add_ref(&enc, label, false, true);
+        } else if (c->type == CONST_FUNCTION) {
+            z80_emit_b(&enc, TYPE_FUNCTION);
+            make_indexed_label(label, sizeof(label), "func_record_", c->data.func_idx);
+            z80_add_ref(&enc, label, false, true);
+        } else {
+            z80_emit_b(&enc, TYPE_NIL);
+            z80_emit_w(&enc, 0);
+        }
+    }
+}
+
+static void emit_interned_string_objects(CompiledChunk* chunk) {
+    char label[32];
+    uint16_t i;
+    uint16_t f;
+
+    for (i = 0; i < chunk->main.const_count; i++) {
+        Constant* c = &chunk->main.constants[i];
+        int16_t first_func_idx;
+        uint16_t first_const_idx;
+        if (c->type != CONST_STRING) continue;
+        if (find_first_string_constant(chunk, -1, i, c->data.string, &first_func_idx, &first_const_idx)) continue;
+        make_const_string_label(label, sizeof(label), -1, i);
+        emit_string_object(label, c->data.string);
+    }
+
+    for (f = 0; f < chunk->func_count; f++) {
+        BytecodeFunction* func = &chunk->functions[f];
+        for (i = 0; i < func->const_count; i++) {
+            Constant* c = &func->constants[i];
+            int16_t first_func_idx;
+            uint16_t first_const_idx;
+            if (c->type != CONST_STRING) continue;
+            if (find_first_string_constant(chunk, (int16_t)f, i, c->data.string, &first_func_idx, &first_const_idx)) continue;
+            make_const_string_label(label, sizeof(label), (int16_t)f, i);
+            emit_string_object(label, c->data.string);
+        }
+    }
+}
+
+static uint16_t count_total_string_constant_refs(CompiledChunk* chunk) {
+    uint16_t total = 0;
+    uint16_t i;
+    uint16_t f;
+
+    for (i = 0; i < chunk->main.const_count; i++) {
+        if (chunk->main.constants[i].type == CONST_STRING) total++;
+    }
+
+    for (f = 0; f < chunk->func_count; f++) {
+        BytecodeFunction* func = &chunk->functions[f];
+        for (i = 0; i < func->const_count; i++) {
+            if (func->constants[i].type == CONST_STRING) total++;
+        }
+    }
+
+    return total;
+}
+
+static uint16_t count_unique_string_constants(CompiledChunk* chunk) {
+    uint16_t unique = 0;
+    uint16_t i;
+    uint16_t f;
+
+    for (i = 0; i < chunk->main.const_count; i++) {
+        Constant* c = &chunk->main.constants[i];
+        int16_t first_func_idx;
+        uint16_t first_const_idx;
+        if (c->type != CONST_STRING) continue;
+        if (!find_first_string_constant(chunk, -1, i, c->data.string, &first_func_idx, &first_const_idx)) unique++;
+    }
+
+    for (f = 0; f < chunk->func_count; f++) {
+        BytecodeFunction* func = &chunk->functions[f];
+        for (i = 0; i < func->const_count; i++) {
+            Constant* c = &func->constants[i];
+            int16_t first_func_idx;
+            uint16_t first_const_idx;
+            if (c->type != CONST_STRING) continue;
+            if (!find_first_string_constant(chunk, (int16_t)f, i, c->data.string, &first_func_idx, &first_const_idx)) unique++;
+        }
+    }
+
+    return unique;
+}
+
+static uint16_t estimate_deduped_string_bytes(CompiledChunk* chunk) {
+    uint16_t saved = 0;
+    uint16_t i;
+    uint16_t f;
+
+    for (i = 0; i < chunk->main.const_count; i++) {
+        Constant* c = &chunk->main.constants[i];
+        int16_t first_func_idx;
+        uint16_t first_const_idx;
+        if (c->type != CONST_STRING) continue;
+        if (find_first_string_constant(chunk, -1, i, c->data.string, &first_func_idx, &first_const_idx)) {
+            saved = (uint16_t)(saved + (uint16_t)strlen(c->data.string) + STRING_HEADER_BYTES + 1);
+        }
+    }
+
+    for (f = 0; f < chunk->func_count; f++) {
+        BytecodeFunction* func = &chunk->functions[f];
+        for (i = 0; i < func->const_count; i++) {
+            Constant* c = &func->constants[i];
+            int16_t first_func_idx;
+            uint16_t first_const_idx;
+            if (c->type != CONST_STRING) continue;
+            if (find_first_string_constant(chunk, (int16_t)f, i, c->data.string, &first_func_idx, &first_const_idx)) {
+                saved = (uint16_t)(saved + (uint16_t)strlen(c->data.string) + STRING_HEADER_BYTES + 1);
+            }
+        }
+    }
+
+    return saved;
+}
+
 static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     uint16_t i;
 
-    emit_function_constant_pool("const_pool_main", "const_str_main_", &chunk->main);
+    emit_function_constant_pool_interned(chunk, "const_pool_main", -1, &chunk->main);
     for (i = 0; i < chunk->func_count; i++) {
         char pool_label[32];
-        char string_prefix[32];
 
         make_indexed_label(pool_label, sizeof(pool_label), "const_pool_func_", i);
-        make_two_index_label(string_prefix, sizeof(string_prefix), "const_str_func_", i, 0);
-        string_prefix[strlen(string_prefix) - 1] = '\0';
-        emit_function_constant_pool(pool_label, string_prefix, &chunk->functions[i]);
+        emit_function_constant_pool_interned(chunk, pool_label, (int16_t)i, &chunk->functions[i]);
     }
+
+    emit_interned_string_objects(chunk);
+
+#ifndef __SDCC
+    if (codegen_is_verbose()) {
+        uint16_t total = count_total_string_constant_refs(chunk);
+        uint16_t unique = count_unique_string_constants(chunk);
+        uint16_t dedup = (total >= unique) ? (uint16_t)(total - unique) : 0;
+        uint16_t bytes_saved = estimate_deduped_string_bytes(chunk);
+        fprintf(stderr, "[codegen] const-string interning: total=%u unique=%u deduped=%u bytes_saved=%u\n", total, unique, dedup, bytes_saved);
+    }
+#endif
 
     for (i = 0; i < chunk->func_count; i++) {
         char label[32];
@@ -394,9 +596,6 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "free_string_medium_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_string_large_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_closure_list"); z80_emit_w(&enc, 0);
-    z80_add_label(&enc, "string_intern_count"); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "string_intern_table"); for (i = 0; i < 32 * 3; i++) z80_emit_b(&enc, 0);
-    /* Each entry: [string_ptr_hi, string_ptr_lo, hash_low_8bits]; max 32 entries = 96 bytes */
     z80_add_label(&enc, "gc_low_watermark"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_high_watermark"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_temp"); z80_emit_w(&enc, 0);

@@ -79,13 +79,33 @@ static void z_print_error(const char* file_name, uint16_t line, uint16_t column,
 static char file_buffer[16384];
 
 int main(int argc, const char* argv[]) {
-    if (argc < 2) {
-        const char usage[] = "Usage: zeallua <file.lua>\n";
+    bool verbose = false;
+    int argi = 1;
+    const char* input_filename;
+
+    while (argi < argc && argv[argi][0] == '-') {
+        if (strcmp(argv[argi], "-v") == 0 || strcmp(argv[argi], "--verbose") == 0) {
+            verbose = true;
+            argi++;
+            continue;
+        }
+
+        {
+            const char usage[] = "Usage: zeallua [-v|--verbose] <file.lua> [out.bin]\n";
+            z_print(usage, sizeof(usage) - 1);
+            exit(1);
+        }
+    }
+
+    if ((argc - argi) < 1 || (argc - argi) > 2) {
+        const char usage[] = "Usage: zeallua [-v|--verbose] <file.lua> [out.bin]\n";
         z_print(usage, sizeof(usage) - 1);
         exit(1);
     }
+
+    input_filename = argv[argi];
     
-    zos_dev_t file_dev = open(argv[1], O_RDONLY);
+    zos_dev_t file_dev = open(input_filename, O_RDONLY);
     if (file_dev < 0) {
         const char err[] = "Error opening file\n";
         z_print(err, sizeof(err) - 1);
@@ -116,7 +136,7 @@ int main(int argc, const char* argv[]) {
     Chunk* chunk = parser_parse(&p);
     
     if (p.has_error) {
-        z_print_error(argv[1], p.error_line, p.error_column, p.error_msg);
+        z_print_error(input_filename, p.error_line, p.error_column, p.error_msg);
         exit(1);
     }
 
@@ -127,24 +147,25 @@ int main(int argc, const char* argv[]) {
     
     compiler_init();
     if (!compiler_compile(chunk, &compiled)) {
-        z_print_error(argv[1], compiled.error_line, compiled.error_column, compiled.error_msg);
+        z_print_error(input_filename, compiled.error_line, compiled.error_column, compiled.error_msg);
         exit(1);
     }
     
     // Generate output filename
     char out_filename[128];
-    if (argc > 2) {
-        strcpy(out_filename, argv[2]);
+    if ((argc - argi) > 1) {
+        strcpy(out_filename, argv[argi + 1]);
     } else {
         int iter = 0;
-        while(argv[1][iter] && iter < 120 && argv[1][iter] != '.') {
-            out_filename[iter] = argv[1][iter];
+        while(input_filename[iter] && iter < 120 && input_filename[iter] != '.') {
+            out_filename[iter] = input_filename[iter];
             iter++;
         }
         out_filename[iter] = '.'; out_filename[iter+1] = 'b'; out_filename[iter+2] = 'i'; out_filename[iter+3] = 'n'; out_filename[iter+4] = '\0';
     }
     
     codegen_init();
+    codegen_set_verbose(verbose);
     if(codegen_generate(&compiled, out_filename)) {
         z_print("Z80 binary generated!\n", 22);
     } else {

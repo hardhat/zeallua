@@ -9,6 +9,7 @@
 
 #define MAX_IMAGE_SIZE 49152
 static uint8_t image[MAX_IMAGE_SIZE];
+static bool codegen_verbose = false;
 
 static bool find_label_addr(const Z80Encoder* e, const char* name, uint16_t* addr_out) {
     uint16_t i;
@@ -146,6 +147,14 @@ void emit_function_constant_pool(const char* pool_label, const char* string_pref
 }
 
 void codegen_init(void) {
+}
+
+void codegen_set_verbose(bool verbose) {
+    codegen_verbose = verbose;
+}
+
+bool codegen_is_verbose(void) {
+    return codegen_verbose;
 }
 
 static bool export_symbols(Z80Encoder* e, const char* bin_filename) {
