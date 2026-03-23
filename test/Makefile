@@ -177,6 +177,7 @@ SUITE_TESTS := \
 	concat_content \
 	local_loop_concat_dynamic \
 	local_loop_tostring_dynamic \
+	string_stress_mixed_lifetimes \
 	pow_basic \
 	pow_assoc \
 	builtin_type \
