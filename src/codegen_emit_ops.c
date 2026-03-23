@@ -649,13 +649,13 @@ static void emit_print_and_string_ops(void) {
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "alloc_string_space_empty");
     z80_add_label(&enc, "alloc_string_space_non_empty");
-    /* --- try free list first (small/medium only; large goes straight to bump) --- */
+    /* --- try free list first (small/medium direct, large first-fit) --- */
     z80_ld_r_r(&enc, REG_A, REG_H);              /* HL = requested length */
     z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_NZ, "ass_bump");    /* len_hi != 0 → large */
+    z80_jr_cc_label(&enc, CC_NZ, "ass_try_large_fl");    /* len_hi != 0 → large */
     z80_ld_r_r(&enc, REG_A, REG_L);
     z80_cp_a_n(&enc, STRING_CONTENT_MEDIUM + 1);
-    z80_jr_cc_label(&enc, CC_NC, "ass_bump");    /* len_lo >= 64 → large */
+    z80_jr_cc_label(&enc, CC_NC, "ass_try_large_fl");    /* len_lo >= 64 → large */
     z80_cp_a_n(&enc, STRING_CONTENT_SMALL + 1);
     z80_jr_cc_label(&enc, CC_NC, "ass_try_medium_fl"); /* len_lo >= 16 → medium class */
     /* Small: try small free list */
@@ -707,6 +707,78 @@ static void emit_print_and_string_ops(void) {
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "free_string_medium_list");
     z80_pop(&enc, RP_HL);
+    z80_jr_label(&enc, "ass_freelist_return");
+    /* Large: first-fit scan on free_string_large_list */
+    z80_add_label(&enc, "ass_try_large_fl");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ld_mem_hl_label(&enc, "string_alloc_prev");
+    z80_ld_hl_mem_label(&enc, "free_string_large_list");
+    z80_add_label(&enc, "ass_large_loop");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_large_have_node");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "ass_bump");
+    z80_add_label(&enc, "ass_large_have_node");
+    z80_ld_mem_hl_label(&enc, "string_alloc_cur");
+    /* Load current->next from payload [+3..4] */
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_pop(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "string_alloc_next");
+    z80_ex_de_hl(&enc);
+    /* Load current block content length into BC */
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);
+    z80_pop(&enc, RP_HL);
+    /* If current length >= requested length then fit */
+    z80_ld_r_r(&enc, REG_H, REG_B);
+    z80_ld_r_r(&enc, REG_L, REG_C);
+    z80_ld_de_mem_label(&enc, "string_length");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_NC, "ass_large_fit");
+    /* Not fit: prev = cur, cur = next, continue */
+    z80_ld_hl_mem_label(&enc, "string_alloc_cur");
+    z80_ld_mem_hl_label(&enc, "string_alloc_prev");
+    z80_ld_hl_mem_label(&enc, "string_alloc_next");
+    z80_jr_label(&enc, "ass_large_loop");
+    z80_add_label(&enc, "ass_large_fit");
+    /* Unlink current from large list */
+    z80_ld_hl_mem_label(&enc, "string_alloc_prev");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_large_has_prev");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_large_has_prev");
+    /* remove head: free_string_large_list = next */
+    z80_ld_hl_mem_label(&enc, "string_alloc_next");
+    z80_ld_mem_hl_label(&enc, "free_string_large_list");
+    z80_jr_label(&enc, "ass_large_take_cur");
+    z80_add_label(&enc, "ass_large_has_prev");
+    /* prev->next (payload [+3..4]) = current->next */
+    z80_push(&enc, RP_HL);                     /* save prev */
+    z80_ld_de_mem_label(&enc, "string_alloc_next");
+    z80_pop(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_E);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);
+    z80_add_label(&enc, "ass_large_take_cur");
+    z80_ld_hl_mem_label(&enc, "string_alloc_cur");
     /* Free-list hit: HL = recycled object base; write new 3-byte header */
     z80_add_label(&enc, "ass_freelist_return");
     z80_ld_r_n(&enc, REG_M, 0x00);               /* [+0] = mark byte = 0x00 */
@@ -1487,14 +1559,14 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_D, REG_M);      /* DE = length */
     z80_pop(&enc, RP_HL);                 /* HL = object base */
-    /* D (len_hi) != 0 → length >= 256 → large → discard */
+    /* D (len_hi) != 0 → large class */
     z80_ld_r_r(&enc, REG_A, REG_D);
     z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_NZ, "fso_done");
+    z80_jr_cc_label(&enc, CC_NZ, "fso_large");
     /* D == 0: classify by len_lo (E) */
     z80_ld_r_r(&enc, REG_A, REG_E);
     z80_cp_a_n(&enc, STRING_CONTENT_MEDIUM + 1);
-    z80_jr_cc_label(&enc, CC_NC, "fso_done");   /* len_lo >= 64 → large → discard */
+    z80_jr_cc_label(&enc, CC_NC, "fso_large");   /* len_lo >= 64 → large class */
     z80_cp_a_n(&enc, STRING_CONTENT_SMALL + 1);
     z80_jr_cc_label(&enc, CC_NC, "fso_medium"); /* len_lo >= 16 → medium */
     /* Small: prepend to free_string_small_list */
@@ -1527,6 +1599,22 @@ static void emit_table_ops(void) {
     z80_dec_rp(&enc, RP_HL);
     z80_dec_rp(&enc, RP_HL);                     /* HL = object base */
     z80_ld_mem_hl_label(&enc, "free_string_medium_list");
+    z80_jr_label(&enc, "fso_done");
+    z80_add_label(&enc, "fso_large");
+    /* Large: prepend to free_string_large_list */
+    z80_ld_r_n(&enc, REG_M, 0xFE);               /* [obj+0] = free marker */
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_ld_de_mem_label(&enc, "free_string_large_list"); /* DE = old head */
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);                     /* HL = object base */
+    z80_ld_mem_hl_label(&enc, "free_string_large_list");
     z80_add_label(&enc, "fso_done");
     z80_ret(&enc);
 
