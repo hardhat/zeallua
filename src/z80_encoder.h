@@ -51,7 +51,7 @@ void z80_init(uint8_t* buffer, uint16_t capacity, uint16_t base_addr);
 // Label management
 void z80_add_label(const char* name);
 void z80_add_ref(const char* name, bool is_relative, bool is_word);
-void z80_resolve_refs(void);
+bool z80_resolve_refs(void);
 
 // Basic emission
 void z80_emit_b(uint8_t b);

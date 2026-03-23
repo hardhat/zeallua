@@ -172,6 +172,7 @@
 ### Implementation Plan (before banked SRAM)
 - [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
 - [~] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first; string allocation now checks small/medium free lists before bumping)
+- [ ] Investigate/fix local-loop dynamic string execution path (`local s = a .. b` and `local s = tostring(i)`) that currently appears to stall before globals are written, blocking stronger string-GC regressions.
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
 - [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure; cycle now clears stale marks before mark phase)

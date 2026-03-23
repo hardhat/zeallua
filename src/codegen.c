@@ -1505,11 +1505,13 @@ bool codegen_generate(CompiledChunk* chunk, const char* out_filename) {
     memset(image, 0, MAX_IMAGE_SIZE);
 
     emit_entry_and_dispatch(chunk);
-    emit_io_and_arithmetic_ops();
+    emit_io_and_arithmetic_ops_split();
     emit_scope_ops();
     emit_compare_stack_and_data(chunk);
 
-    z80_resolve_refs();
+    if (!z80_resolve_refs()) {
+        return false;
+    }
 
     if (!export_symbols(&enc, out_filename)) {
         return false;

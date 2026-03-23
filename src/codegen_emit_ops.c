@@ -800,6 +800,7 @@ static void emit_print_and_string_ops(void) {
     z80_ret(&enc);
     /* --- bump-pointer path --- */
     z80_add_label(&enc, "ass_bump");
+    z80_ld_hl_mem_label(&enc, "string_length");
     /* total object size = len + 3 (mark+len_lo+len_hi) + 1 (NUL) */
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
@@ -2371,4 +2372,8 @@ void emit_io_and_arithmetic_ops(void) {
     emit_print_and_string_ops();
     emit_numeric_and_misc_ops();
     emit_table_ops();
+}
+
+void emit_io_and_arithmetic_ops_split(void) {
+    emit_io_and_arithmetic_ops();
 }

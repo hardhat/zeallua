@@ -113,6 +113,12 @@ DUMP_BYTES := 4
 STEP_COUNT := 2000000
 endif
 
+ifeq ($(TEST),gc_string_counters)
+DUMP_SYMBOL := gc_mark_string_count
+DUMP_BYTES := 10
+STEP_COUNT := 2500000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -169,6 +175,8 @@ SUITE_TESTS := \
 	len_table \
 	concat_basic \
 	concat_content \
+	local_loop_concat_dynamic \
+	local_loop_tostring_dynamic \
 	pow_basic \
 	pow_assoc \
 	builtin_type \
@@ -201,6 +209,7 @@ SUITE_TESTS := \
 	table_reclaim_queue_smoke \
 	table_reclaim_queue_overflow \
 	gc_trigger_counters \
+	gc_string_counters \
 	table_example_core \
 	for_in_array \
 	for_in_empty \

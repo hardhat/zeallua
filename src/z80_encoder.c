@@ -1,5 +1,6 @@
 #define Z80_ENCODER_NO_COMPAT_MACROS
 #include "z80_encoder.h"
+#include <stdio.h>
 #include <string.h>
 
 Z80Encoder enc;
@@ -35,7 +36,8 @@ void z80_add_ref(const char* name, bool is_relative, bool is_word) {
     }
 }
 
-void z80_resolve_refs(void) {
+bool z80_resolve_refs(void) {
+    bool ok = true;
     for (uint16_t i = 0; i < enc.ref_count; i++) {
         uint16_t target = 0;
         bool found = false;
@@ -46,17 +48,35 @@ void z80_resolve_refs(void) {
                 break;
             }
         }
-        if (found) {
-            uint16_t patch = enc.refs[i].patch_addr;
-            if (enc.refs[i].is_relative) {
-                int8_t rel = (int8_t)((int16_t)target - (int16_t)(enc.base_addr + patch + 1));
-                enc.buffer[patch] = (uint8_t)rel;
-            } else if (enc.refs[i].is_word) {
-                enc.buffer[patch] = target & 0xFF;
-                enc.buffer[patch+1] = (target >> 8) & 0xFF;
+        if (!found) {
+            fprintf(stderr, "z80_resolve_refs: undefined label '%s'\n", enc.refs[i].name);
+            ok = false;
+            continue;
+        }
+
+        uint16_t patch = enc.refs[i].patch_addr;
+        if (enc.refs[i].is_relative) {
+            int16_t rel = (int16_t)target - (int16_t)(enc.base_addr + patch + 1);
+            if (rel < -128 || rel > 127) {
+                fprintf(
+                    stderr,
+                    "z80_resolve_refs: relative branch out of range for label '%s' at 0x%04X -> 0x%04X (offset %d, valid -128..127)\n",
+                    enc.refs[i].name,
+                    (uint16_t)(enc.base_addr + patch - 1),
+                    target,
+                    rel
+                );
+                ok = false;
+                continue;
             }
+            enc.buffer[patch] = (uint8_t)(int8_t)rel;
+        } else if (enc.refs[i].is_word) {
+            enc.buffer[patch] = target & 0xFF;
+            enc.buffer[patch+1] = (target >> 8) & 0xFF;
         }
     }
+
+    return ok;
 }
 
 void z80_emit_b(uint8_t b) {

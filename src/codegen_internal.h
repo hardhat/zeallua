@@ -30,6 +30,7 @@ void make_two_index_label(char* dst, uint16_t cap, const char* prefix, uint16_t 
 void emit_string_object(const char* label, const char* text);
 void emit_function_constant_pool(const char* pool_label, const char* string_prefix, BytecodeFunction* func);
 void emit_io_and_arithmetic_ops(void);
+void emit_io_and_arithmetic_ops_split(void);
 void emit_compare_stack_and_data(CompiledChunk* chunk);
 
 #endif
