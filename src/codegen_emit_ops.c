@@ -535,10 +535,11 @@ static void emit_print_and_string_ops(void) {
     z80_rst(&enc, 0x08); z80_ret(&enc);
 
     z80_add_label(&enc, "print_str");
-    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_C, REG_M);     /* C = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_B, REG_M);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);     /* B = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
     z80_ex_de_hl(&enc);
     z80_ld_rp_nn(&enc, RP_HL, 1);  // H=STDOUT=0, L=1 ZEAL SYSCALL WRITE
     z80_rst(&enc, 0x08); z80_ret(&enc);
@@ -609,10 +610,11 @@ static void emit_print_and_string_ops(void) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "alloc_string_copy");
-    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_E, REG_M);     /* E = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);     /* D = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
     z80_call_label(&enc, "alloc_raw_string");
     z80_ret(&enc);
 
@@ -647,6 +649,75 @@ static void emit_print_and_string_ops(void) {
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "alloc_string_space_empty");
     z80_add_label(&enc, "alloc_string_space_non_empty");
+    /* --- try free list first (small/medium only; large goes straight to bump) --- */
+    z80_ld_r_r(&enc, REG_A, REG_H);              /* HL = requested length */
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_bump");    /* len_hi != 0 → large */
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_cp_a_n(&enc, STRING_CONTENT_MEDIUM + 1);
+    z80_jr_cc_label(&enc, CC_NC, "ass_bump");    /* len_lo >= 64 → large */
+    z80_cp_a_n(&enc, STRING_CONTENT_SMALL + 1);
+    z80_jr_cc_label(&enc, CC_NC, "ass_try_medium_fl"); /* len_lo >= 16 → medium class */
+    /* Small: try small free list */
+    z80_ld_hl_mem_label(&enc, "free_string_small_list");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_hit_small");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* small list empty → bump */
+    z80_add_label(&enc, "ass_hit_small");
+    /* pop head: read [obj+0..1] = next ptr; update list head */
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "free_string_small_list");
+    z80_pop(&enc, RP_HL);
+    z80_jr_label(&enc, "ass_freelist_return");
+    /* Medium: try medium free list */
+    z80_add_label(&enc, "ass_try_medium_fl");
+    z80_ld_hl_mem_label(&enc, "free_string_medium_list");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "ass_hit_medium");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* medium list empty → bump */
+    z80_add_label(&enc, "ass_hit_medium");
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ex_de_hl(&enc);
+    z80_ld_mem_hl_label(&enc, "free_string_medium_list");
+    z80_pop(&enc, RP_HL);
+    /* Free-list hit: HL = recycled object base; write new 3-byte header */
+    z80_add_label(&enc, "ass_freelist_return");
+    z80_ld_r_n(&enc, REG_M, 0x00);               /* [+0] = mark byte = 0x00 */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "string_length");
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [+1] = len_lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [+2] = len_hi */
+    z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_push(&enc, RP_HL);                       /* save payload ptr */
+    z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL); z80_dec_rp(&enc, RP_HL); /* HL = obj base */
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "alloc_total_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "alloc_total_count");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "note_alloc_addr");
+    z80_pop(&enc, RP_DE);
+    z80_ret(&enc);
+    /* --- bump-pointer path --- */
+    z80_add_label(&enc, "ass_bump");
+    /* total object size = len + 3 (mark+len_lo+len_hi) + 1 (NUL) */
+    z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
@@ -660,11 +731,13 @@ static void emit_print_and_string_ops(void) {
     z80_jr_cc_label(&enc, CC_C, "alloc_string_space_empty");
     z80_ld_hl_mem_label(&enc, "string_ptr");
     z80_push(&enc, RP_HL);
+    z80_ld_r_n(&enc, REG_M, 0x00);               /* [+0] = mark byte = 0x00 */
+    z80_inc_rp(&enc, RP_HL);
     z80_ld_de_mem_label(&enc, "string_length");
-    z80_ld_r_r(&enc, REG_M, REG_E);
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [+1] = len_lo */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_M, REG_D);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [+2] = len_hi */
+    z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
     z80_push(&enc, RP_HL);
     z80_ld_hl_mem_label(&enc, "string_candidate");
     z80_ld_mem_hl_label(&enc, "string_ptr");
@@ -695,15 +768,17 @@ static void emit_print_and_string_ops(void) {
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "concat_right_ptr");
     z80_ld_hl_mem_label(&enc, "concat_left_ptr");
-    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_E, REG_M);     /* E = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ld_r_r(&enc, REG_D, REG_M);     /* D = len_hi at [+2] */
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "concat_left_len");
     z80_ld_hl_mem_label(&enc, "concat_right_ptr");
-    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_E, REG_M);     /* E = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ld_r_r(&enc, REG_D, REG_M);     /* D = len_hi at [+2] */
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "concat_right_len");
     z80_ld_hl_mem_label(&enc, "concat_left_len");
@@ -724,6 +799,7 @@ static void emit_print_and_string_ops(void) {
     z80_ld_hl_mem_label(&enc, "concat_left_ptr");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);            /* skip mark, len_lo, len_hi → content at [+3] */
     z80_call_label(&enc, "copy_bc_bytes");
     z80_ld_hl_mem_label(&enc, "concat_right_len");
     z80_ld_r_r(&enc, REG_B, REG_H);
@@ -731,6 +807,7 @@ static void emit_print_and_string_ops(void) {
     z80_ld_hl_mem_label(&enc, "concat_right_ptr");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);            /* skip mark, len_lo, len_hi → content at [+3] */
     z80_call_label(&enc, "copy_bc_bytes");
     z80_xor_a(&enc);
     z80_emit_b(&enc, 0x12);
@@ -804,6 +881,7 @@ static void emit_print_and_string_ops(void) {
     z80_add_label(&enc, "read_file_string");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);            /* skip mark, len_lo, len_hi → NUL-term content at [+3] */
     z80_ld_r_r(&enc, REG_C, REG_L);
     z80_ld_r_r(&enc, REG_B, REG_H);
     z80_ld_rp_nn(&enc, RP_HL, 0x0002);
@@ -855,6 +933,7 @@ static void emit_print_and_string_ops(void) {
     z80_add_label(&enc, "write_file_string");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);            /* skip mark, len_lo, len_hi → NUL-term content at [+3] */
     z80_ld_r_r(&enc, REG_C, REG_L);
     z80_ld_r_r(&enc, REG_B, REG_H);
     z80_ld_rp_nn(&enc, RP_HL, 0x1502);
@@ -865,10 +944,11 @@ static void emit_print_and_string_ops(void) {
     z80_ld_hl_a(&enc);
 
     z80_ld_hl_mem_label(&enc, "writefile_data_ptr");
-    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_C, REG_M);     /* C = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_B, REG_M);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);     /* B = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
     z80_ex_de_hl(&enc);
     z80_ld_rp_label(&enc, RP_HL, "writefile_dev");
     z80_ld_a_hl(&enc);
@@ -898,6 +978,7 @@ static void emit_print_and_string_ops(void) {
     z80_add_label(&enc, "open_file_handle");
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);            /* skip mark, len_lo, len_hi → NUL-term content at [+3] */
     z80_ld_r_r(&enc, REG_C, REG_L);
     z80_ld_r_r(&enc, REG_B, REG_H);
     z80_ld_rp_label(&enc, RP_HL, "open_flags");
@@ -945,10 +1026,11 @@ static void emit_print_and_string_ops(void) {
     z80_add_label(&enc, "write_to_handle");
     z80_push(&enc, RP_HL);
     z80_ld_hl_mem_label(&enc, "io_data_ptr");
-    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_C, REG_M);     /* C = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_B, REG_M);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_B, REG_M);     /* B = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
     z80_ex_de_hl(&enc);
     z80_pop(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_H, REG_L);
@@ -1007,10 +1089,11 @@ static void emit_print_and_string_ops(void) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "string_to_number");
-    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_E, REG_M);     /* E = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
-    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);     /* D = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
     z80_push(&enc, RP_HL);
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "tonumber_remaining");
@@ -1246,9 +1329,10 @@ static void emit_numeric_and_misc_ops(void) {
     z80_jr_label(&enc, "len_push");
 
     z80_add_label(&enc, "len_string");
-    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip mark byte [+0] */
+    z80_ld_r_r(&enc, REG_E, REG_M);     /* E = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ld_r_r(&enc, REG_D, REG_M);     /* D = len_hi at [+2] */
     z80_ex_de_hl(&enc);
     z80_jr_label(&enc, "len_push");
 
@@ -1377,6 +1461,46 @@ static void emit_table_ops(void) {
     z80_ld_r_r(&enc, REG_M, REG_D);                /* (HL+1) = hi of old head */
     z80_dec_rp(&enc, RP_HL);                        /* restore HL to table base */
     z80_ld_mem_hl_label(&enc, "free_table_list");   /* free_table_list = HL */
+    z80_ret(&enc);
+
+    /* Recycle a heap string to the appropriate size-class free list.
+     * Input: HL = string object ptr. Large strings (content > STRING_CONTENT_MEDIUM)
+     * are silently dropped (not tracked; arena space recovered by future GC sweep).
+     * Preserves all registers except A and DE. */
+    z80_add_label(&enc, "free_string_object");
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);              /* skip mark byte → len_lo at [+1] */
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);      /* DE = length */
+    z80_pop(&enc, RP_HL);                 /* HL = object base */
+    /* D (len_hi) != 0 → length >= 256 → large → discard */
+    z80_ld_r_r(&enc, REG_A, REG_D);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "fso_done");
+    /* D == 0: classify by len_lo (E) */
+    z80_ld_r_r(&enc, REG_A, REG_E);
+    z80_cp_a_n(&enc, STRING_CONTENT_MEDIUM + 1);
+    z80_jr_cc_label(&enc, CC_NC, "fso_done");   /* len_lo >= 64 → large → discard */
+    z80_cp_a_n(&enc, STRING_CONTENT_SMALL + 1);
+    z80_jr_cc_label(&enc, CC_NC, "fso_medium"); /* len_lo >= 16 → medium */
+    /* Small: prepend to free_string_small_list */
+    z80_ld_de_mem_label(&enc, "free_string_small_list"); /* DE = old head */
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+0] = old head lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+1] = old head hi */
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "free_string_small_list");
+    z80_jr_label(&enc, "fso_done");
+    z80_add_label(&enc, "fso_medium");
+    /* Medium: prepend to free_string_medium_list */
+    z80_ld_de_mem_label(&enc, "free_string_medium_list"); /* DE = old head */
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+0] = old head lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+1] = old head hi */
+    z80_dec_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "free_string_medium_list");
+    z80_add_label(&enc, "fso_done");
     z80_ret(&enc);
 
     /* Mark byte is stored in table header byte 1.

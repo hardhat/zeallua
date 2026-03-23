@@ -149,7 +149,7 @@
 
 ### Scope (Approved)
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
-- [ ] Step 2: dynamic/reusable strings. (allocator still monotonic)
+- [~] Step 2: dynamic/reusable strings. (string object header now includes mark byte; small/medium free-list reuse path wired in alloc_string_space; full string reachability/sweep integration still pending)
 - [x] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop stages table reclaim candidates; mark/sweep GC completes the safe reclaim path)
 - [x] Step 4: lightweight non-moving mark/sweep GC. (complete: root scan covers globals, value stack, frame locals, current_env, current_closure, and all saved env/closure ptrs on the call stack; deterministic clear→mark→sweep cycle; 25%/12.5% threshold triggers; gc_sweep_enabled=1 by default)
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table counters added; soft/force trigger counters added; gc_cycle_count added)
@@ -171,7 +171,7 @@
 
 ### Implementation Plan (before banked SRAM)
 - [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
-- [ ] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first)
+- [~] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first; string allocation now checks small/medium free lists before bumping)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
 - [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure; cycle now clears stale marks before mark phase)

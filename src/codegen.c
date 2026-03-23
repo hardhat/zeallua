@@ -103,6 +103,7 @@ void emit_string_object(const char* label, const char* text) {
     uint16_t len = (uint16_t)strlen(text);
 
     z80_add_label(label);
+    z80_emit_b(0xFF);  /* mark byte: 0xFF = permanent (constant pool, never freed by GC) */
     z80_emit_w(len);
     while (*text) {
         z80_emit_b((uint8_t)*text);

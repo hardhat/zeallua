@@ -218,18 +218,20 @@ static void emit_mul_and_value_stack_helpers(void) {
 
 static void emit_string_and_call_stack_helpers(void) {
     z80_add_label(&enc, "strcmp_hl_de");
-    z80_ld_r_r(&enc, REG_C, REG_M);
+    z80_inc_rp(&enc, RP_HL);             /* skip HL string mark byte [+0] */
+    z80_ld_r_r(&enc, REG_C, REG_M);     /* C = len_lo at [+1] */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_B, REG_M);
-    z80_inc_rp(&enc, RP_HL);
-    z80_emit_b(&enc, 0x1A);
+    z80_ld_r_r(&enc, REG_B, REG_M);     /* B = len_hi at [+2] */
+    z80_inc_rp(&enc, RP_HL);            /* HL = content at [+3] */
+    z80_inc_rp(&enc, RP_DE);            /* skip DE string mark byte [+0] */
+    z80_emit_b(&enc, 0x1A);             /* A = DE's len_lo at [+1] */
     z80_cp_a_r(&enc, REG_C);
     z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
     z80_inc_rp(&enc, RP_DE);
-    z80_emit_b(&enc, 0x1A);
+    z80_emit_b(&enc, 0x1A);             /* A = DE's len_hi at [+2] */
     z80_cp_a_r(&enc, REG_B);
     z80_jr_cc_label(&enc, CC_NZ, "strcmp_hl_de_done");
-    z80_inc_rp(&enc, RP_DE);
+    z80_inc_rp(&enc, RP_DE);            /* DE = content at [+3] */
     z80_add_label(&enc, "strcmp_hl_de_loop");
     z80_ld_r_r(&enc, REG_A, REG_B);
     z80_or_a(&enc);

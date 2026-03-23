@@ -14,7 +14,9 @@
 #define TABLE_ENTRY_SIZE 6
 #define TABLE_SIZE (4 + (TABLE_CAPACITY * TABLE_ENTRY_SIZE))
 #define TABLE_RECLAIM_QUEUE_CAP 64
-#define STRING_HEADER_BYTES 2
+#define STRING_HEADER_BYTES 3           /* [mark][len_lo][len_hi] */
+#define STRING_CONTENT_SMALL  15         /* max content bytes in small class; total object = 19 */
+#define STRING_CONTENT_MEDIUM 63         /* max content bytes in medium class; total object = 67 */
 #define FUNCTION_HEADER_BYTES 6
 /* Phase 8 baseline budget within default 48K mapped RAM. */
 #define TABLE_HEAP_BYTES 14336
