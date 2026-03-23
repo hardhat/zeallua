@@ -667,10 +667,16 @@ static void emit_print_and_string_ops(void) {
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* small list empty → bump */
     z80_add_label(&enc, "ass_hit_small");
-    /* pop head: read [obj+0..1] = next ptr; update list head */
+    /* pop head: read [obj+3..4] (payload) = next ptr; update list head */
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_E, REG_M);
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
     z80_dec_rp(&enc, RP_HL);
     z80_push(&enc, RP_HL);
     z80_ex_de_hl(&enc);
@@ -687,9 +693,15 @@ static void emit_print_and_string_ops(void) {
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_Z, "ass_bump");     /* medium list empty → bump */
     z80_add_label(&enc, "ass_hit_medium");
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_E, REG_M);
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
     z80_dec_rp(&enc, RP_HL);
     z80_push(&enc, RP_HL);
     z80_ex_de_hl(&enc);
@@ -1464,8 +1476,9 @@ static void emit_table_ops(void) {
     z80_ret(&enc);
 
     /* Recycle a heap string to the appropriate size-class free list.
-     * Input: HL = string object ptr. Large strings (content > STRING_CONTENT_MEDIUM)
-     * are silently dropped (not tracked; arena space recovered by future GC sweep).
+     * Input: HL = string object ptr. Free-list next pointer is stored in payload bytes
+     * [+3..+4] so [mark][len_lo][len_hi] stays intact for arena walking.
+     * Mark state: 0xFE means free-list member. Large strings are not reused yet.
      * Preserves all registers except A and DE. */
     z80_add_label(&enc, "free_string_object");
     z80_push(&enc, RP_HL);
@@ -1485,20 +1498,34 @@ static void emit_table_ops(void) {
     z80_cp_a_n(&enc, STRING_CONTENT_SMALL + 1);
     z80_jr_cc_label(&enc, CC_NC, "fso_medium"); /* len_lo >= 16 → medium */
     /* Small: prepend to free_string_small_list */
-    z80_ld_de_mem_label(&enc, "free_string_small_list"); /* DE = old head */
-    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+0] = old head lo */
+    z80_ld_r_n(&enc, REG_M, 0xFE);               /* [obj+0] = free marker */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+1] = old head hi */
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_ld_de_mem_label(&enc, "free_string_small_list"); /* DE = old head */
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
     z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);                     /* HL = object base */
     z80_ld_mem_hl_label(&enc, "free_string_small_list");
     z80_jr_label(&enc, "fso_done");
     z80_add_label(&enc, "fso_medium");
     /* Medium: prepend to free_string_medium_list */
-    z80_ld_de_mem_label(&enc, "free_string_medium_list"); /* DE = old head */
-    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+0] = old head lo */
+    z80_ld_r_n(&enc, REG_M, 0xFE);               /* [obj+0] = free marker */
     z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+1] = old head hi */
+    z80_inc_rp(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_ld_de_mem_label(&enc, "free_string_medium_list"); /* DE = old head */
+    z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
     z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);
+    z80_dec_rp(&enc, RP_HL);                     /* HL = object base */
     z80_ld_mem_hl_label(&enc, "free_string_medium_list");
     z80_add_label(&enc, "fso_done");
     z80_ret(&enc);
@@ -1525,21 +1552,34 @@ static void emit_table_ops(void) {
     z80_add_label(&enc, "mark_table_reachable_done");
     z80_ret(&enc);
 
+    /* String header layout: [0]=gc_mark (0x00=unmarked, 0x01=marked, 0xFE=free-list).
+     * Constant-pool strings use mark byte 0xFF and are treated as permanent roots. */
+    z80_add_label(&enc, "mark_string_reachable");  /* HL = string ptr */
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_string_reachable_nonzero");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "mark_string_reachable_done");
+    z80_add_label(&enc, "mark_string_reachable_nonzero");
+    z80_ld_a_hl(&enc);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "mark_string_reachable_done");
+    z80_ld_r_n(&enc, REG_A, 1);
+    z80_ld_hl_a(&enc);
+    z80_ld_hl_mem_label(&enc, "gc_mark_string_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_mark_string_count");
+    z80_add_label(&enc, "mark_string_reachable_done");
+    z80_ret(&enc);
+
     z80_add_label(&enc, "mark_table_roots_globals");
     z80_ld_rp_label(&enc, RP_HL, "global_vars");
     z80_ld_r_n(&enc, REG_B, 0); /* 256 slots */
     z80_add_label(&enc, "mark_table_roots_globals_loop");
     z80_push(&enc, RP_HL);
-    z80_ld_a_hl(&enc);
-    z80_cp_a_n(&enc, TYPE_TABLE);
-    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_globals_next");
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_E, REG_M);
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
-    z80_ex_de_hl(&enc);
     z80_push(&enc, RP_BC);
-    z80_call_label(&enc, "mark_table_reachable");
+    z80_call_label(&enc, "mark_table_cell");
     z80_pop(&enc, RP_BC);
     z80_add_label(&enc, "mark_table_roots_globals_next");
     z80_pop(&enc, RP_HL);
@@ -1560,17 +1600,7 @@ static void emit_table_ops(void) {
     z80_pop(&enc, RP_HL);
 
     z80_push(&enc, RP_HL);
-    z80_inc_rp(&enc, RP_HL);
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_a_hl(&enc);
-    z80_cp_a_n(&enc, TYPE_TABLE);
-    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_vstack_next");
-    z80_dec_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_E, REG_M);
-    z80_dec_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
-    z80_ex_de_hl(&enc);
-    z80_call_label(&enc, "mark_table_reachable");
+    z80_call_label(&enc, "mark_table_cell");
     z80_add_label(&enc, "mark_table_roots_vstack_next");
     z80_pop(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
@@ -1593,17 +1623,7 @@ static void emit_table_ops(void) {
     z80_pop(&enc, RP_HL);
 
     z80_push(&enc, RP_HL);
-    z80_inc_rp(&enc, RP_HL);
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_a_hl(&enc);
-    z80_cp_a_n(&enc, TYPE_TABLE);
-    z80_jr_cc_label(&enc, CC_NZ, "mark_table_roots_frame_next");
-    z80_dec_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_E, REG_M);
-    z80_dec_rp(&enc, RP_HL);
-    z80_ld_r_r(&enc, REG_D, REG_M);
-    z80_ex_de_hl(&enc);
-    z80_call_label(&enc, "mark_table_reachable");
+    z80_call_label(&enc, "mark_table_cell");
     z80_add_label(&enc, "mark_table_roots_frame_next");
     z80_pop(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
@@ -1690,7 +1710,13 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_ld_a_hl(&enc);
     z80_cp_a_n(&enc, TYPE_TABLE);
+    z80_jr_cc_label(&enc, CC_Z, "mark_table_cell_mark_table");
+    z80_cp_a_n(&enc, TYPE_STRING);
     z80_jr_cc_label(&enc, CC_NZ, "mark_table_cell_done");
+    z80_ex_de_hl(&enc);
+    z80_call_label(&enc, "mark_string_reachable");
+    z80_jr_label(&enc, "mark_table_cell_done");
+    z80_add_label(&enc, "mark_table_cell_mark_table");
     z80_ex_de_hl(&enc);
     z80_call_label(&enc, "mark_table_reachable");
     z80_add_label(&enc, "mark_table_cell_done");
@@ -1827,6 +1853,87 @@ static void emit_table_ops(void) {
     z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
+    z80_add_label(&enc, "clear_string_marks");
+    z80_ld_rp_label(&enc, RP_HL, "string_space");
+    z80_add_label(&enc, "clear_string_marks_loop");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "string_ptr");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_Z, "clear_string_marks_done");
+    z80_jr_cc_label(&enc, CC_NC, "clear_string_marks_done");
+    z80_pop(&enc, RP_HL);
+
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, 1);
+    z80_jr_cc_label(&enc, CC_NZ, "clear_string_marks_keep");
+    z80_xor_a(&enc);
+    z80_ld_hl_a(&enc);
+    z80_add_label(&enc, "clear_string_marks_keep");
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);                        /* HL = string content length */
+    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(STRING_HEADER_BYTES + 1));
+    z80_add_hl_rp(&enc, RP_DE);                /* HL = total object size */
+    z80_ex_de_hl(&enc);                        /* DE = total object size */
+    z80_pop(&enc, RP_HL);                      /* HL = object base */
+    z80_add_hl_rp(&enc, RP_DE);                /* HL = next string object */
+    z80_jr_label(&enc, "clear_string_marks_loop");
+
+    z80_add_label(&enc, "clear_string_marks_done");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "sweep_string_arena");
+    z80_ld_rp_label(&enc, RP_HL, "string_space");
+    z80_add_label(&enc, "sweep_string_arena_loop");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "string_ptr");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_Z, "sweep_string_arena_done");
+    z80_jr_cc_label(&enc, CC_NC, "sweep_string_arena_done");
+    z80_pop(&enc, RP_HL);
+
+    z80_push(&enc, RP_HL);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_E, REG_M);
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_r_r(&enc, REG_D, REG_M);
+    z80_ex_de_hl(&enc);
+    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(STRING_HEADER_BYTES + 1));
+    z80_add_hl_rp(&enc, RP_DE);                /* HL = total object size */
+    z80_ex_de_hl(&enc);                        /* DE = total object size */
+    z80_pop(&enc, RP_HL);                      /* HL = object base */
+    z80_push(&enc, RP_HL);
+    z80_add_hl_rp(&enc, RP_DE);
+    z80_ld_mem_hl_label(&enc, "string_scan_next");
+    z80_pop(&enc, RP_HL);
+
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, 0xFE);                    /* already in free list */
+    z80_jr_cc_label(&enc, CC_Z, "sweep_string_arena_next");
+    z80_or_a(&enc);                            /* 0x00 means unreachable heap string */
+    z80_jr_cc_label(&enc, CC_NZ, "sweep_string_arena_next");
+    z80_push(&enc, RP_HL);
+    z80_call_label(&enc, "free_string_object");
+    z80_pop(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "gc_sweep_string_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_sweep_string_count");
+
+    z80_add_label(&enc, "sweep_string_arena_next");
+    z80_ld_hl_mem_label(&enc, "string_scan_next");
+    z80_jr_label(&enc, "sweep_string_arena_loop");
+
+    z80_add_label(&enc, "sweep_string_arena_done");
+    z80_pop(&enc, RP_HL);
+    z80_ret(&enc);
+
     /* Queue a table pointer for deferred reclaim. This is non-intrusive:
      * the table object is not modified until a future mark phase proves it
      * unreachable and calls gc_sweep_deferred_tables. Input: HL=table ptr. */
@@ -1873,7 +1980,10 @@ static void emit_table_ops(void) {
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_mem_hl_label(&enc, "gc_mark_table_count");
     z80_ld_mem_hl_label(&enc, "gc_sweep_table_count");
+    z80_ld_mem_hl_label(&enc, "gc_mark_string_count");
+    z80_ld_mem_hl_label(&enc, "gc_sweep_string_count");
     z80_call_label(&enc, "clear_table_marks");
+    z80_call_label(&enc, "clear_string_marks");
     z80_call_label(&enc, "mark_table_roots");
 
     z80_add_label(&enc, "gc_run_sweep_cycle_loop");
@@ -1884,7 +1994,7 @@ static void emit_table_ops(void) {
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
     z80_ld_a_hl(&enc);
     z80_cp_a_r(&enc, REG_C);
-    z80_jr_cc_label(&enc, CC_Z, "gc_run_sweep_cycle_done");
+    z80_jr_cc_label(&enc, CC_Z, "gc_run_sweep_cycle_sweep_strings");
 
     z80_ld_r_r(&enc, REG_A, REG_C);
     z80_inc_r(&enc, REG_A);
@@ -1927,6 +2037,8 @@ static void emit_table_ops(void) {
     z80_ld_hl_a(&enc);
     z80_jr_label(&enc, "gc_run_sweep_cycle_loop");
 
+    z80_add_label(&enc, "gc_run_sweep_cycle_sweep_strings");
+    z80_call_label(&enc, "sweep_string_arena");
     z80_add_label(&enc, "gc_run_sweep_cycle_done");
     z80_ret(&enc);
 

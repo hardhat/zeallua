@@ -377,9 +377,12 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "pending_table_reclaim_dropcnt"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_mark_table_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_sweep_table_count"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "gc_mark_string_count"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "gc_sweep_string_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_trigger_soft_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_trigger_force_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_cycle_count"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_scan_next"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "cstack_scan_closure_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "cstack_scan_env_temp"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "cstack_frame_temp"); z80_emit_w(&enc, 0);
