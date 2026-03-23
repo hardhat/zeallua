@@ -394,6 +394,9 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "free_string_medium_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_string_large_list"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "free_closure_list"); z80_emit_w(&enc, 0);
+    z80_add_label(&enc, "string_intern_count"); z80_emit_b(&enc, 0);
+    z80_add_label(&enc, "string_intern_table"); for (i = 0; i < 32 * 3; i++) z80_emit_b(&enc, 0);
+    /* Each entry: [string_ptr_hi, string_ptr_lo, hash_low_8bits]; max 32 entries = 96 bytes */
     z80_add_label(&enc, "gc_low_watermark"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_high_watermark"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "table_key_temp"); z80_emit_w(&enc, 0);
