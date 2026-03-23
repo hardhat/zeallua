@@ -149,7 +149,7 @@
 
 ### Scope (Approved)
 - [x] Step 1: allocator foundations with reusable dynamic object blocks.
-- [~] Step 2: dynamic/reusable strings. (string object header now includes mark byte; small/medium/large free-list reuse path wired in alloc_string_space, with large-class first-fit scan; string mark/clear/sweep now runs each GC cycle with root coverage shared from typed-cell scanning)
+- [~] Step 2: dynamic/reusable strings. (string object header now includes mark byte; small/medium/large free-list reuse path wired in alloc_string_space, with large-class first-fit scan; string mark/clear/sweep now runs each GC cycle with root coverage shared from typed-cell scanning; loop-local concat/tostring path now stable and full suite passes)
 - [x] Step 3: dynamic/reusable tables. (allocation-side reuse added; free_table_object helper emitted; op_pop stages table reclaim candidates; mark/sweep GC completes the safe reclaim path)
 - [x] Step 4: lightweight non-moving mark/sweep GC. (complete: root scan covers globals, value stack, frame locals, current_env, current_closure, and all saved env/closure ptrs on the call stack; deterministic clear→mark→sweep cycle; 25%/12.5% threshold triggers; gc_sweep_enabled=1 by default)
 - [~] Step 5: OOM and allocator diagnostics. (basic counters/labels in place; watermarks + reclaim queue drop diagnostics active; GC mark/sweep table+string counters added; soft/force trigger counters added; gc_cycle_count added)
@@ -172,9 +172,18 @@
 ### Implementation Plan (before banked SRAM)
 - [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
 - [~] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first; string allocation now checks small/medium free lists before bumping)
-- [ ] Investigate/fix local-loop dynamic string execution path (`local s = a .. b` and `local s = tostring(i)`) that currently appears to stall before globals are written, blocking stronger string-GC regressions.
+- [x] Investigate/fix local-loop dynamic string execution path (`local s = a .. b` and `local s = tostring(i)`) that previously stalled before globals were written. (resolved; full suite passing)
 - [ ] Add string interning for short strings/identifiers and hash caching.
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
 - [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure; cycle now clears stale marks before mark phase)
 - [~] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free). (table allocator now checks 25%/12.5% free thresholds; soft path uses gated sweep, force path runs deterministic sweep cycle)
 - [~] Add allocation watermarks and precise OOM diagnostics for table/string/closure allocators. (allocator counters and watermark symbols are present; runtime updates being wired)
+
+### String Next Steps (Post-Stability)
+- [ ] Remove disabled legacy string/allocator emission paths now that split emitter path is validated by full-suite pass.
+- [ ] Implement short-string interning for constants/identifiers and intern-table lookup on concat/tostring allocation boundaries.
+- [ ] Extend string object metadata with cached hash and use it for fast string key compare in table get/set.
+- [ ] Add string free-list integrity checks (class membership + next-pointer sanity) behind a debug flag and run in host tests.
+- [ ] Add targeted string stress regressions: repeated local concat/tostring loops, mixed short/medium/large lifetimes, and forced-GC under low free space.
+- [ ] Add explicit string OOM regression cases that validate counter increments and graceful fallback behavior.
+- [ ] Decide and document Step 2 completion criteria (interning + hash cache + stress/OOM coverage + perf sanity threshold) before moving Step 2 to done.
