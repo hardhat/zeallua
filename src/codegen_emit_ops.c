@@ -640,6 +640,47 @@ static void emit_print_and_string_ops(void) {
     z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
+    /* Validate string free-list head pointer.
+     * Input: HL=head pointer (may be 0 for empty).
+     * Output: HL=head if valid; HL=0 if invalid/corrupt.
+     * Corruption counter increments when debug flag is enabled. */
+    z80_add_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_r_r(&enc, REG_A, REG_H);
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_NZ, "sanitize_sfl_nonzero");
+    z80_ld_r_r(&enc, REG_A, REG_L);
+    z80_or_a(&enc);
+    z80_ret(&enc);                                /* empty list head is valid */
+    z80_add_label(&enc, "sanitize_sfl_nonzero");
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_label(&enc, RP_DE, "string_space");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);                  /* head - string_space */
+    z80_pop(&enc, RP_HL);
+    z80_jr_cc_label(&enc, CC_C, "sanitize_sfl_invalid");
+    z80_push(&enc, RP_HL);
+    z80_ld_de_mem_label(&enc, "string_ptr");
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);                  /* head - string_ptr */
+    z80_pop(&enc, RP_HL);
+    z80_jr_cc_label(&enc, CC_NC, "sanitize_sfl_invalid");
+    z80_ld_a_hl(&enc);
+    z80_cp_a_n(&enc, 0xFE);                      /* free-list member marker */
+    z80_jr_cc_label(&enc, CC_Z, "sanitize_sfl_ok");
+    z80_add_label(&enc, "sanitize_sfl_invalid");
+    z80_ld_rp_label(&enc, RP_DE, "string_freelist_debug_enabled");
+    z80_emit_b(&enc, 0x1A);                      /* A = (DE) */
+    z80_or_a(&enc);
+    z80_jr_cc_label(&enc, CC_Z, "sanitize_sfl_clear");
+    z80_ld_hl_mem_label(&enc, "string_freelist_corrupt_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "string_freelist_corrupt_count");
+    z80_add_label(&enc, "sanitize_sfl_clear");
+    z80_ld_rp_nn(&enc, RP_HL, 0);
+    z80_ret(&enc);
+    z80_add_label(&enc, "sanitize_sfl_ok");
+    z80_ret(&enc);
+
     z80_add_label(&enc, "alloc_string_space");
     z80_ld_mem_hl_label(&enc, "string_length");
     z80_ld_r_r(&enc, REG_A, REG_H);
@@ -660,6 +701,8 @@ static void emit_print_and_string_ops(void) {
     z80_jr_cc_label(&enc, CC_NC, "ass_try_medium_fl"); /* len_lo >= 16 → medium class */
     /* Small: try small free list */
     z80_ld_hl_mem_label(&enc, "free_string_small_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_small_list");
     z80_ld_r_r(&enc, REG_A, REG_H);
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_NZ, "ass_hit_small");
@@ -682,10 +725,12 @@ static void emit_print_and_string_ops(void) {
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "free_string_small_list");
     z80_pop(&enc, RP_HL);
-    z80_jr_label(&enc, "ass_freelist_return");
+    z80_jp_label(&enc, "ass_freelist_return");
     /* Medium: try medium free list */
     z80_add_label(&enc, "ass_try_medium_fl");
     z80_ld_hl_mem_label(&enc, "free_string_medium_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_medium_list");
     z80_ld_r_r(&enc, REG_A, REG_H);
     z80_or_a(&enc);
     z80_jr_cc_label(&enc, CC_NZ, "ass_hit_medium");
@@ -707,12 +752,14 @@ static void emit_print_and_string_ops(void) {
     z80_ex_de_hl(&enc);
     z80_ld_mem_hl_label(&enc, "free_string_medium_list");
     z80_pop(&enc, RP_HL);
-    z80_jr_label(&enc, "ass_freelist_return");
+    z80_jp_label(&enc, "ass_freelist_return");
     /* Large: first-fit scan on free_string_large_list */
     z80_add_label(&enc, "ass_try_large_fl");
     z80_ld_rp_nn(&enc, RP_HL, 0);
     z80_ld_mem_hl_label(&enc, "string_alloc_prev");
     z80_ld_hl_mem_label(&enc, "free_string_large_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_large_list");
     z80_add_label(&enc, "ass_large_loop");
     z80_ld_r_r(&enc, REG_A, REG_H);
     z80_or_a(&enc);
@@ -1575,7 +1622,12 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "free_string_small_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_small_list");
     z80_ld_de_mem_label(&enc, "free_string_small_list"); /* DE = old head */
+    z80_pop(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
@@ -1591,7 +1643,12 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "free_string_medium_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_medium_list");
     z80_ld_de_mem_label(&enc, "free_string_medium_list"); /* DE = old head */
+    z80_pop(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
@@ -1607,7 +1664,12 @@ static void emit_table_ops(void) {
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);
     z80_inc_rp(&enc, RP_HL);                     /* HL = payload [+3] */
+    z80_push(&enc, RP_HL);
+    z80_ld_hl_mem_label(&enc, "free_string_large_list");
+    z80_call_label(&enc, "sanitize_string_freelist_head");
+    z80_ld_mem_hl_label(&enc, "free_string_large_list");
     z80_ld_de_mem_label(&enc, "free_string_large_list"); /* DE = old head */
+    z80_pop(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_E);              /* [obj+3] = old head lo */
     z80_inc_rp(&enc, RP_HL);
     z80_ld_r_r(&enc, REG_M, REG_D);              /* [obj+4] = old head hi */
@@ -2249,6 +2311,9 @@ static void emit_table_ops(void) {
     z80_jp_label(&enc, "get_table_match");
     z80_add_label(&enc, "get_table_string_compare");
     z80_ld_hl_mem_label(&enc, "table_key_temp");
+    z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
+    z80_jp_cc_label(&enc, CC_Z, "get_table_match");
+    z80_ld_hl_mem_label(&enc, "table_key_temp");
     z80_call_label(&enc, "strcmp_hl_de");
     z80_jp_cc_label(&enc, CC_NZ, "get_table_next");
     z80_add_label(&enc, "get_table_match");
@@ -2309,6 +2374,9 @@ static void emit_table_ops(void) {
     z80_jp_cc_label(&enc, CC_NZ, "set_table_next");
     z80_jp_label(&enc, "set_table_match");
     z80_add_label(&enc, "set_table_string_compare");
+    z80_ld_hl_mem_label(&enc, "table_key_temp");
+    z80_or_a(&enc); z80_emit_b(&enc, 0xED); z80_emit_b(&enc, 0x52);
+    z80_jp_cc_label(&enc, CC_Z, "set_table_match");
     z80_ld_hl_mem_label(&enc, "table_key_temp");
     z80_call_label(&enc, "strcmp_hl_de");
     z80_jp_cc_label(&enc, CC_NZ, "set_table_next");
