@@ -2296,84 +2296,49 @@ static void emit_table_ops(void) {
     z80_ret(&enc);
 
     z80_add_label(&enc, "maybe_gc_tables_on_alloc");
-    /* Hysteresis windows for table GC pressure:
-     * enter soft pressure below 25% free, exit when free rises above 50%.
-     * force pressure remains latched until free rises above 25%. */
     z80_ld_rp_label(&enc, RP_HL, "heap_end");
     z80_ld_de_mem_label(&enc, "heap_ptr");
     z80_or_a(&enc);
     z80_sbc_hl_rp(&enc, RP_DE); /* HL = free bytes in table arena */
-    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 2));
-    z80_or_a(&enc);
-    z80_sbc_hl_rp(&enc, RP_DE);
-    z80_jr_cc_label(&enc, CC_C, "maybe_gc_tables_on_alloc_skip_clear_soft");
-    z80_ld_rp_label(&enc, RP_HL, "gc_soft_hysteresis_latched");
-    z80_xor_a(&enc);
-    z80_ld_hl_a(&enc);
-    z80_ld_rp_label(&enc, RP_HL, "gc_force_hysteresis_latched");
-    z80_xor_a(&enc);
-    z80_ld_hl_a(&enc);
-    z80_add_label(&enc, "maybe_gc_tables_on_alloc_skip_clear_soft");
-
-    z80_ld_rp_label(&enc, RP_HL, "heap_end");
-    z80_ld_de_mem_label(&enc, "heap_ptr");
-    z80_or_a(&enc);
-    z80_sbc_hl_rp(&enc, RP_DE); /* HL = free bytes in table arena */
+    z80_push(&enc, RP_HL);
     z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 4));
     z80_or_a(&enc);
     z80_sbc_hl_rp(&enc, RP_DE);
-    z80_jr_cc_label(&enc, CC_C, "maybe_gc_tables_on_alloc_soft_pressure");
-    z80_ld_rp_label(&enc, RP_HL, "gc_force_hysteresis_latched");
-    z80_xor_a(&enc);
-    z80_ld_hl_a(&enc);
-    z80_ret(&enc);
+    z80_jr_cc_label(&enc, CC_NC, "maybe_gc_tables_on_alloc_no_trigger");
 
-    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_pressure");
-    z80_ld_rp_label(&enc, RP_HL, "gc_soft_hysteresis_latched");
-    z80_ld_a_hl(&enc);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_NZ, "maybe_gc_tables_on_alloc_soft_already_latched");
     z80_ld_hl_mem_label(&enc, "gc_trigger_soft_count");
     z80_inc_rp(&enc, RP_HL);
     z80_ld_mem_hl_label(&enc, "gc_trigger_soft_count");
-    z80_ld_rp_label(&enc, RP_HL, "gc_soft_hysteresis_latched");
-    z80_ld_r_n(&enc, REG_A, 1);
-    z80_ld_hl_a(&enc);
-    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_already_latched");
+
+    z80_pop(&enc, RP_HL);
+    z80_push(&enc, RP_HL);
+    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 8));
+    z80_or_a(&enc);
+    z80_sbc_hl_rp(&enc, RP_DE);
+    z80_jr_cc_label(&enc, CC_NC, "maybe_gc_tables_on_alloc_soft_only");
+
+    z80_ld_hl_mem_label(&enc, "gc_trigger_force_count");
+    z80_inc_rp(&enc, RP_HL);
+    z80_ld_mem_hl_label(&enc, "gc_trigger_force_count");
+    z80_pop(&enc, RP_HL);
+    z80_call_label(&enc, "gc_run_sweep_cycle");
+    z80_ret(&enc);
+
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_only");
+    z80_pop(&enc, RP_HL);
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_head");
     z80_ld_a_hl(&enc);
     z80_ld_r_r(&enc, REG_B, REG_A);
     z80_ld_rp_label(&enc, RP_HL, "pending_table_reclaim_tail");
     z80_ld_a_hl(&enc);
     z80_cp_a_r(&enc, REG_B);
-    z80_jr_cc_label(&enc, CC_Z, "maybe_gc_tables_on_alloc_post_soft");
+    z80_jr_cc_label(&enc, CC_Z, "maybe_gc_tables_on_alloc_soft_done");
     z80_call_label(&enc, "gc_sweep_deferred_tables");
-
-    z80_add_label(&enc, "maybe_gc_tables_on_alloc_post_soft");
-    z80_ld_rp_label(&enc, RP_HL, "heap_end");
-    z80_ld_de_mem_label(&enc, "heap_ptr");
-    z80_or_a(&enc);
-    z80_sbc_hl_rp(&enc, RP_DE); /* HL = free bytes in table arena */
-    z80_ld_rp_nn(&enc, RP_DE, (uint16_t)(TABLE_HEAP_BYTES / 8));
-    z80_or_a(&enc);
-    z80_sbc_hl_rp(&enc, RP_DE);
-    z80_jr_cc_label(&enc, CC_NC, "maybe_gc_tables_on_alloc_soft_only");
-
-    z80_ld_rp_label(&enc, RP_HL, "gc_force_hysteresis_latched");
-    z80_ld_a_hl(&enc);
-    z80_or_a(&enc);
-    z80_jr_cc_label(&enc, CC_NZ, "maybe_gc_tables_on_alloc_soft_only");
-
-    z80_ld_hl_mem_label(&enc, "gc_trigger_force_count");
-    z80_inc_rp(&enc, RP_HL);
-    z80_ld_mem_hl_label(&enc, "gc_trigger_force_count");
-    z80_ld_rp_label(&enc, RP_HL, "gc_force_hysteresis_latched");
-    z80_ld_r_n(&enc, REG_A, 1);
-    z80_ld_hl_a(&enc);
-    z80_call_label(&enc, "gc_run_sweep_cycle");
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_done");
     z80_ret(&enc);
 
-    z80_add_label(&enc, "maybe_gc_tables_on_alloc_soft_only");
+    z80_add_label(&enc, "maybe_gc_tables_on_alloc_no_trigger");
+    z80_pop(&enc, RP_HL);
     z80_ret(&enc);
 
     z80_add_label(&enc, "op_newtable");

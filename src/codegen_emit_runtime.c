@@ -585,8 +585,6 @@ static void emit_constant_pools_and_runtime_data(CompiledChunk* chunk) {
     z80_add_label(&enc, "string_freelist_debug_enabled"); z80_emit_b(&enc, 1);
     z80_add_label(&enc, "gc_trigger_soft_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "gc_trigger_force_count"); z80_emit_w(&enc, 0);
-    z80_add_label(&enc, "gc_soft_hysteresis_latched"); z80_emit_b(&enc, 0);
-    z80_add_label(&enc, "gc_force_hysteresis_latched"); z80_emit_b(&enc, 0);
     z80_add_label(&enc, "gc_cycle_count"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "string_scan_next"); z80_emit_w(&enc, 0);
     z80_add_label(&enc, "string_alloc_prev"); z80_emit_w(&enc, 0);
