@@ -108,9 +108,21 @@ DUMP_BYTES := 2
 endif
 
 ifeq ($(TEST),gc_trigger_counters)
-DUMP_SYMBOL := gc_trigger_force_count
+DUMP_SYMBOL := gc_trigger_soft_count
 DUMP_BYTES := 4
 STEP_COUNT := 2000000
+endif
+
+ifeq ($(TEST),table_gc_hysteresis_latch)
+DUMP_SYMBOL := gc_trigger_soft_count
+DUMP_BYTES := 6
+STEP_COUNT := 2500000
+endif
+
+ifeq ($(TEST),table_gc_hysteresis_clear)
+DUMP_SYMBOL := gc_soft_hysteresis_latched
+DUMP_BYTES := 2
+STEP_COUNT := 200000
 endif
 
 ifeq ($(TEST),gc_string_counters)
@@ -258,6 +270,8 @@ SUITE_TESTS := \
 	table_mark_roots_counter \
 	table_reclaim_queue_smoke \
 	table_reclaim_queue_overflow \
+	table_gc_hysteresis_latch \
+	table_gc_hysteresis_clear \
 	gc_trigger_counters \
 	gc_string_counters \
 	table_example_core \
@@ -395,6 +409,19 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 			freelist_head_hi_hex=$$(printf '0x%04X' $$((0x$$freelist_head_no_prefix + 1))); \
 			pre_commands=$$(printf 'rom[%s]=0\nrom[%s]=1\nrom[%s]=0\n' "$$debug_flag_hex" "$$freelist_head_hex" "$$freelist_head_hi_hex"); \
 		fi; \
+	elif [ "$(TEST)" = "table_gc_hysteresis_clear" ]; then \
+		soft_latch_hex=$$(awk '/^gc_soft_hysteresis_latched[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		force_latch_hex=$$(awk '/^gc_force_hysteresis_latched[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		heap_ptr_hex=$$(awk '/^heap_ptr[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		heap_space_hex=$$(awk '/^heap_space[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		if [ -n "$$soft_latch_hex" ] && [ -n "$$force_latch_hex" ] && [ -n "$$heap_ptr_hex" ] && [ -n "$$heap_space_hex" ]; then \
+			heap_ptr_no_prefix=$${heap_ptr_hex#0x}; \
+			heap_ptr_hi_hex=$$(printf '0x%04X' $$((0x$$heap_ptr_no_prefix + 1))); \
+			heap_space_no_prefix=$${heap_space_hex#0x}; \
+			heap_space_lo=$$((0x$$heap_space_no_prefix & 0xFF)); \
+			heap_space_hi=$$(((0x$$heap_space_no_prefix >> 8) & 0xFF)); \
+			pre_commands=$$(printf 'rom[%s]=1\nrom[%s]=1\nrom[%s]=%s\nrom[%s]=%s\n' "$$soft_latch_hex" "$$force_latch_hex" "$$heap_ptr_hex" "$$heap_space_lo" "$$heap_ptr_hi_hex" "$$heap_space_hi"); \
+		fi; \
 	fi; \
 	bss_start_hex=$$(awk '/^bss_start[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
@@ -407,7 +434,7 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 	fi; \
 	addr_no_prefix=$${addr_hex#0x}; \
 	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + $(DUMP_BYTES) - 1))); \
-	printf '%sstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$step_count" "$$addr_hex" "$$end_hex" > $@
+	printf '%s\nstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$step_count" "$$addr_hex" "$$end_hex" > $@
 
 $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
 	if [ -n "$(DUMP_ADDR)" ]; then \

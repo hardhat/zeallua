@@ -193,7 +193,7 @@
 - [x] Free-list diagnostics: add host-visible dump target/test for `string_freelist_corrupt_count` and debug-gate behavior. (added `string_freelist_corrupt_counter` and `string_freelist_corrupt_counter_gate_off` regressions + dump targets)
 - [x] Stress completion: add forced low-free + force-sweep regression and keep deterministic baseline. (`string_force_sweep_counters` added and in suite)
 - [x] OOM completion: add one additional string OOM scenario that validates `alloc_fail_count` and `alloc_string_fail_count` together. (`string_oom_dual_counters` added and in suite)
-- [ ] Table allocator completion: finish table growth/shrink hysteresis migration and add focused tests.
+- [x] Table allocator completion: finish table growth/shrink hysteresis migration and add focused tests. (soft/force trigger hysteresis latches added with 25%/12.5% enter and 50%/25% clear bands; added `table_gc_hysteresis_latch` and `table_gc_hysteresis_clear` regressions)
 - [x] Diagnostics completion: finish watermark wiring and add regression(s) for low/high watermark updates. (`allocator_watermark_updates` added and in suite)
 - [ ] Memory budget completion: convert 48K budget targets from placeholders to measured values from host/emulator runs.
 - [ ] Phase 8 exit criteria: document explicit done criteria and mark Step 2/Step 5 done when all above pass.
