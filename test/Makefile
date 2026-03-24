@@ -137,6 +137,18 @@ DUMP_BYTES := 2
 STEP_COUNT := 2500000
 endif
 
+ifeq ($(TEST),string_force_sweep_counters)
+DUMP_SYMBOL := gc_trigger_force_count
+DUMP_BYTES := 2
+STEP_COUNT := 2500000
+endif
+
+ifeq ($(TEST),string_oom_dual_counters)
+DUMP_SYMBOL := alloc_fail_count
+DUMP_BYTES := 6
+STEP_COUNT := 2500000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -199,6 +211,8 @@ SUITE_TESTS := \
 	string_gc_pressure_counters \
 	string_oom_counters \
 	string_freelist_corrupt_counter \
+	string_force_sweep_counters \
+	string_oom_dual_counters \
 	pow_basic \
 	pow_assoc \
 	builtin_type \
