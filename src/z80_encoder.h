@@ -19,14 +19,16 @@ typedef enum {
     CC_NZ = 0, CC_Z = 1, CC_NC = 2, CC_C = 3
 } Condition;
 
+#define Z80_LABEL_NAME_MAX 64
+
 // Labels & Refs
 typedef struct {
-    char name[32];
+    char name[Z80_LABEL_NAME_MAX];
     uint16_t addr;
 } Z80Label;
 
 typedef struct {
-    char name[32];
+    char name[Z80_LABEL_NAME_MAX];
     uint16_t patch_addr;
     bool is_relative;
     bool is_word;

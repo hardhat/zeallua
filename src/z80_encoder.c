@@ -15,18 +15,33 @@ void z80_init(uint8_t* buffer, uint16_t capacity, uint16_t base_addr) {
 }
 
 void z80_add_label(const char* name) {
+    if (strlen(name) >= Z80_LABEL_NAME_MAX) {
+        fprintf(stderr, "z80_add_label: label name too long (%zu chars, max %d): '%s'\n",
+                strlen(name), Z80_LABEL_NAME_MAX - 1, name);
+    }
+    for (uint16_t i = 0; i < enc.label_count; i++) {
+        if (strcmp(enc.labels[i].name, name) == 0) {
+            fprintf(stderr, "z80_add_label: duplicate label '%s' (first at 0x%04X, now at 0x%04X)\n",
+                    name, enc.labels[i].addr, (uint16_t)(enc.base_addr + enc.size));
+            break;
+        }
+    }
     if (enc.label_count < MAX_LABELS) {
-        strncpy(enc.labels[enc.label_count].name, name, 31);
-        enc.labels[enc.label_count].name[31] = '\0';
+        strncpy(enc.labels[enc.label_count].name, name, Z80_LABEL_NAME_MAX - 1);
+        enc.labels[enc.label_count].name[Z80_LABEL_NAME_MAX - 1] = '\0';
         enc.labels[enc.label_count].addr = enc.base_addr + enc.size;
         enc.label_count++;
     }
 }
 
 void z80_add_ref(const char* name, bool is_relative, bool is_word) {
+    if (strlen(name) >= Z80_LABEL_NAME_MAX) {
+        fprintf(stderr, "z80_add_ref: ref name too long (%zu chars, max %d): '%s'\n",
+                strlen(name), Z80_LABEL_NAME_MAX - 1, name);
+    }
     if (enc.ref_count < MAX_REFS) {
-        strncpy(enc.refs[enc.ref_count].name, name, 31);
-        enc.refs[enc.ref_count].name[31] = '\0';
+        strncpy(enc.refs[enc.ref_count].name, name, Z80_LABEL_NAME_MAX - 1);
+        enc.refs[enc.ref_count].name[Z80_LABEL_NAME_MAX - 1] = '\0';
         enc.refs[enc.ref_count].patch_addr = enc.size;
         enc.refs[enc.ref_count].is_relative = is_relative;
         enc.refs[enc.ref_count].is_word = is_word;
