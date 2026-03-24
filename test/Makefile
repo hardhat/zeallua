@@ -10,6 +10,7 @@ MAKEFLAGS += --no-print-directory
 STUB_ASM := ucsim_stub.asm
 STUB_BIN := out/ucsim_stub.bin
 STUB_IHX := out/ucsim_stub.ihx
+STUB_LABELS := out/ucsim_stub.labels.txt
 PROGRAM_LUA := $(TEST).lua
 PROGRAM_BIN := out/$(TEST).bin
 PROGRAM_SIM_BIN := out/$(TEST).sim.bin
@@ -311,6 +312,7 @@ SUITE_TESTS := \
 
 SUITE_CHECK_TARGETS := $(addprefix check-,$(subst _,-,$(SUITE_TESTS)))
 SUITE_RUN_TARGETS := $(addprefix run-,$(subst _,-,$(SUITE_TESTS)))
+SHARED_TEST_ARTIFACTS := $(STUB_IHX) $(STUB_LABELS)
 
 DIAG_TESTS := \
 	diag_unterminated_string \
@@ -333,7 +335,7 @@ DIAG_SUITE_CHECK_TARGETS := $(addprefix check-diag-,$(subst _,-,$(patsubst diag_
 
 all: suite
 
-suite: $(SUITE_CHECK_TARGETS) $(DIAG_SUITE_CHECK_TARGETS)
+suite: $(SHARED_TEST_ARTIFACTS) $(SUITE_CHECK_TARGETS) $(DIAG_SUITE_CHECK_TARGETS)
 
 # check-diag-% must appear before check-% so the longer prefix takes precedence
 check-diag-%: FORCE
@@ -348,10 +350,10 @@ check-diag-%: FORCE
 		exit 1; \
 	fi
 
-check-%: FORCE
+check-%: $(SHARED_TEST_ARTIFACTS) FORCE
 	$(MAKE) check TEST=$(subst -,_,$*)
 
-run-%: FORCE
+run-%: $(SHARED_TEST_ARTIFACTS) FORCE
 	$(MAKE) run TEST=$(subst -,_,$*)
 
 FORCE:
@@ -370,14 +372,20 @@ run: $(ACTUAL)
 out:
 	mkdir -p out
 
-$(STUB_BIN): $(STUB_ASM) | out
-	$(ASM) -o $@ $<
+$(STUB_LABELS): $(STUB_ASM) | out
+	$(ASM) -L -o $(STUB_BIN) $< > /dev/null 2> $@
+
+$(STUB_BIN): $(STUB_LABELS)
+	@:
 
 $(STUB_IHX): $(STUB_BIN)
 	$(OBJCOPY) -I binary -O ihex $< $@
 
 $(PROGRAM_BIN): $(PROGRAM_LUA) $(HOST_COMPILER) | out
 	$(HOST_COMPILER) $< $@
+
+$(PROGRAM_SYM): $(PROGRAM_BIN)
+	@:
 
 $(PROGRAM_SIM_BIN): $(PROGRAM_BIN) $(PROGRAM_SYM)
 	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
@@ -394,12 +402,13 @@ $(PROGRAM_IHX): $(PROGRAM_SIM_BIN)
 	grep -vi '^:..00000[35]' $@ > $@.tmp
 	mv $@.tmp $@
 
-$(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
+$(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) $(STUB_LABELS) FORCE
 	if [ -n "$(DUMP_ADDR)" ]; then \
 		addr_hex=$(DUMP_ADDR); \
 	else \
 		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	fi; \
+	stub_exit_hex=$$(awk '/^_sys_exit:[[:space:]]+equ[[:space:]]+\$$[0-9A-Fa-f]+/ { printf "0x%s", substr($$3, 2); exit }' $(STUB_LABELS)); \
 	pre_commands=; \
 	if [ "$(TEST)" = "string_freelist_corrupt_counter_gate_off" ]; then \
 		debug_flag_hex=$$(awk '/^string_freelist_debug_enabled[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
@@ -434,7 +443,11 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 	fi; \
 	addr_no_prefix=$${addr_hex#0x}; \
 	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + $(DUMP_BYTES) - 1))); \
-	printf '%s\nstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$step_count" "$$addr_hex" "$$end_hex" > $@
+	if [ -n "$$stub_exit_hex" ]; then \
+		printf '%s\ntbreak %s\nstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$stub_exit_hex" "$$step_count" "$$addr_hex" "$$end_hex" > $@; \
+	else \
+		printf '%s\nstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$step_count" "$$addr_hex" "$$end_hex" > $@; \
+	fi
 
 $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
 	if [ -n "$(DUMP_ADDR)" ]; then \
@@ -442,8 +455,11 @@ $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
 	else \
 		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	fi; \
+	addr_no_prefix=$${addr_hex#0x}; \
+	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + $(DUMP_BYTES) - 1))); \
 	$(SIM) -q -X 10M -t Z80 $(STUB_IHX) $(PROGRAM_IHX) < $(COMMANDS) | \
-		grep '^0x[0-9a-f]\{4\} ' | sed 's/^0x[0-9a-f]\{4\} //' > $@
+		awk -v start="$$addr_hex" -v end="$$end_hex" 'BEGIN { s = strtonum(start); e = strtonum(end); } /^0x[0-9a-fA-F]+[[:space:]]/ { a = strtonum($$1); if (a >= s && a <= e) print; }' | \
+		sed 's/^0x[0-9a-fA-F]\{4\} //' > $@
 
 clean:
 	rm -rf out
