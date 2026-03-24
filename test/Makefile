@@ -149,6 +149,12 @@ DUMP_BYTES := 6
 STEP_COUNT := 2500000
 endif
 
+ifeq ($(TEST),allocator_watermark_updates)
+DUMP_SYMBOL := gc_low_watermark
+DUMP_BYTES := 4
+STEP_COUNT := 2500000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -213,6 +219,7 @@ SUITE_TESTS := \
 	string_freelist_corrupt_counter \
 	string_force_sweep_counters \
 	string_oom_dual_counters \
+	allocator_watermark_updates \
 	pow_basic \
 	pow_assoc \
 	builtin_type \

@@ -194,6 +194,6 @@
 - [x] Stress completion: add forced low-free + force-sweep regression and keep deterministic baseline. (`string_force_sweep_counters` added and in suite)
 - [x] OOM completion: add one additional string OOM scenario that validates `alloc_fail_count` and `alloc_string_fail_count` together. (`string_oom_dual_counters` added and in suite)
 - [ ] Table allocator completion: finish table growth/shrink hysteresis migration and add focused tests.
-- [ ] Diagnostics completion: finish watermark wiring and add regression(s) for low/high watermark updates.
+- [x] Diagnostics completion: finish watermark wiring and add regression(s) for low/high watermark updates. (`allocator_watermark_updates` added and in suite)
 - [ ] Memory budget completion: convert 48K budget targets from placeholders to measured values from host/emulator runs.
 - [ ] Phase 8 exit criteria: document explicit done criteria and mark Step 2/Step 5 done when all above pass.
