@@ -184,6 +184,6 @@
 - [~] Implement short-string interning for constants/identifiers and intern-table lookup on concat/tostring allocation boundaries. (host-side cross-function constant-pool string interning is now active; runtime concat/tostring allocation-boundary lookup still pending)
 - [ ] Extend string object metadata with cached hash and use it for fast string key compare in table get/set.
 - [~] Add string free-list integrity checks (class membership + next-pointer sanity) behind a debug flag and run in host tests. (head-pointer bounds/marker sanitizer wired on alloc + free paths; corruption counter + debug gate symbols added)
-- [~] Add targeted string stress regressions: repeated local concat/tostring loops, mixed short/medium/large lifetimes, and forced-GC under low free space. (added `string_stress_mixed_lifetimes` regression and included in suite)
-- [ ] Add explicit string OOM regression cases that validate counter increments and graceful fallback behavior.
+- [~] Add targeted string stress regressions: repeated local concat/tostring loops, mixed short/medium/large lifetimes, and forced-GC under low free space. (added `string_stress_mixed_lifetimes` and `string_gc_pressure_counters` regressions; both in suite)
+- [~] Add explicit string OOM regression cases that validate counter increments and graceful fallback behavior. (added `string_oom_counters` regression with alloc fail counter dump baseline)
 - [ ] Decide and document Step 2 completion criteria (interning + hash cache + stress/OOM coverage + perf sanity threshold) before moving Step 2 to done.

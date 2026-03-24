@@ -119,6 +119,18 @@ DUMP_BYTES := 10
 STEP_COUNT := 2500000
 endif
 
+ifeq ($(TEST),string_gc_pressure_counters)
+DUMP_SYMBOL := gc_trigger_soft_count
+DUMP_BYTES := 6
+STEP_COUNT := 2500000
+endif
+
+ifeq ($(TEST),string_oom_counters)
+DUMP_SYMBOL := alloc_fail_count
+DUMP_BYTES := 6
+STEP_COUNT := 2500000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -178,6 +190,8 @@ SUITE_TESTS := \
 	local_loop_concat_dynamic \
 	local_loop_tostring_dynamic \
 	string_stress_mixed_lifetimes \
+	string_gc_pressure_counters \
+	string_oom_counters \
 	pow_basic \
 	pow_assoc \
 	builtin_type \
