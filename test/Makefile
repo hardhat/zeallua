@@ -131,6 +131,12 @@ DUMP_BYTES := 6
 STEP_COUNT := 2500000
 endif
 
+ifeq ($(TEST),string_freelist_corrupt_counter)
+DUMP_SYMBOL := string_freelist_corrupt_count
+DUMP_BYTES := 2
+STEP_COUNT := 2500000
+endif
+
 SUITE_TESTS := \
 	program \
 	arith \
@@ -192,6 +198,7 @@ SUITE_TESTS := \
 	string_stress_mixed_lifetimes \
 	string_gc_pressure_counters \
 	string_oom_counters \
+	string_freelist_corrupt_counter \
 	pow_basic \
 	pow_assoc \
 	builtin_type \

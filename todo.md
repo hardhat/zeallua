@@ -173,7 +173,7 @@
 - [ ] Define runtime heap layout and object headers (type, mark bit, payload size/class).
 - [~] Replace monotonic table and string allocation with free-list backed allocators. (table allocation path now checks free_table_list first; string allocation now checks small/medium free lists before bumping)
 - [x] Investigate/fix local-loop dynamic string execution path (`local s = a .. b` and `local s = tostring(i)`) that previously stalled before globals were written. (resolved; full suite passing)
-- [ ] Add string interning for short strings/identifiers and hash caching.
+- [x] Remove runtime short-string interning/hash mapping from Phase 8 Z80 scope. (host-side constant-pool interning + pointer-equality fast path retained; runtime interning/hash cache deferred)
 - [ ] Migrate tables toward reusable dynamic storage with growth/shrink hysteresis.
 - [~] Add deferred reclaim staging for tables, then reclaim during GC sweep only. (ring queue + sweep helper emitted; op_pop staging wired; sweep gate + overflow diagnostics added; root-mark-aware table reclaim path wired across globals/vstack/frame locals/current env/current closure; cycle now clears stale marks before mark phase)
 - [~] Add GC trigger thresholds (start at under 25 percent free, force sweep at under 12.5 percent free). (table allocator now checks 25%/12.5% free thresholds; soft path uses gated sweep, force path runs deterministic sweep cycle)
@@ -181,9 +181,19 @@
 
 ### String Next Steps (Post-Stability)
 - [x] Remove disabled legacy string/allocator emission paths now that split emitter path is validated by full-suite pass.
-- [~] Implement short-string interning for constants/identifiers and intern-table lookup on concat/tostring allocation boundaries. (host-side cross-function constant-pool string interning is now active; runtime concat/tostring allocation-boundary lookup still pending)
-- [ ] Extend string object metadata with cached hash and use it for fast string key compare in table get/set.
+- [x] Keep host-side constant-pool string interning only; defer runtime short-string interning on Z80.
+- [x] Keep pointer-equality fast path for string key compare; defer runtime string hash cache on Z80.
 - [~] Add string free-list integrity checks (class membership + next-pointer sanity) behind a debug flag and run in host tests. (head-pointer bounds/marker sanitizer wired on alloc + free paths; corruption counter + debug gate symbols added)
 - [~] Add targeted string stress regressions: repeated local concat/tostring loops, mixed short/medium/large lifetimes, and forced-GC under low free space. (added `string_stress_mixed_lifetimes` and `string_gc_pressure_counters` regressions; both in suite)
 - [~] Add explicit string OOM regression cases that validate counter increments and graceful fallback behavior. (added `string_oom_counters` regression with alloc fail counter dump baseline)
-- [ ] Decide and document Step 2 completion criteria (interning + hash cache + stress/OOM coverage + perf sanity threshold) before moving Step 2 to done.
+- [ ] Decide and document Step 2 completion criteria (free-list integrity + stress/OOM coverage + perf sanity threshold) before moving Step 2 to done.
+
+### Phase 8 Closeout Tasks (after removing runtime short-string interning)
+- [ ] Free-list integrity: add next-pointer/class sanity checks during sweep/reclaim paths (not only head-pointer sanitization).
+- [~] Free-list diagnostics: add host-visible dump target/test for `string_freelist_corrupt_count` and debug-gate behavior. (added `string_freelist_corrupt_counter` regression + dump target; debug-gate toggle test still pending)
+- [ ] Stress completion: add forced low-free + force-sweep regression and keep deterministic baseline.
+- [ ] OOM completion: add one additional string OOM scenario that validates `alloc_fail_count` and `alloc_string_fail_count` together.
+- [ ] Table allocator completion: finish table growth/shrink hysteresis migration and add focused tests.
+- [ ] Diagnostics completion: finish watermark wiring and add regression(s) for low/high watermark updates.
+- [ ] Memory budget completion: convert 48K budget targets from placeholders to measured values from host/emulator runs.
+- [ ] Phase 8 exit criteria: document explicit done criteria and mark Step 2/Step 5 done when all above pass.
