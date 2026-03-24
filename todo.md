@@ -190,7 +190,7 @@
 
 ### Phase 8 Closeout Tasks (after removing runtime short-string interning)
 - [ ] Free-list integrity: add next-pointer/class sanity checks during sweep/reclaim paths (not only head-pointer sanitization).
-- [~] Free-list diagnostics: add host-visible dump target/test for `string_freelist_corrupt_count` and debug-gate behavior. (added `string_freelist_corrupt_counter` regression + dump target; debug-gate toggle test still pending)
+- [x] Free-list diagnostics: add host-visible dump target/test for `string_freelist_corrupt_count` and debug-gate behavior. (added `string_freelist_corrupt_counter` and `string_freelist_corrupt_counter_gate_off` regressions + dump targets)
 - [x] Stress completion: add forced low-free + force-sweep regression and keep deterministic baseline. (`string_force_sweep_counters` added and in suite)
 - [x] OOM completion: add one additional string OOM scenario that validates `alloc_fail_count` and `alloc_string_fail_count` together. (`string_oom_dual_counters` added and in suite)
 - [ ] Table allocator completion: finish table growth/shrink hysteresis migration and add focused tests.

@@ -137,6 +137,12 @@ DUMP_BYTES := 2
 STEP_COUNT := 2500000
 endif
 
+ifeq ($(TEST),string_freelist_corrupt_counter_gate_off)
+DUMP_SYMBOL := string_freelist_corrupt_count
+DUMP_BYTES := 2
+STEP_COUNT := 2500000
+endif
+
 ifeq ($(TEST),string_force_sweep_counters)
 DUMP_SYMBOL := gc_trigger_force_count
 DUMP_BYTES := 2
@@ -217,6 +223,7 @@ SUITE_TESTS := \
 	string_gc_pressure_counters \
 	string_oom_counters \
 	string_freelist_corrupt_counter \
+	string_freelist_corrupt_counter_gate_off \
 	string_force_sweep_counters \
 	string_oom_dual_counters \
 	allocator_watermark_updates \
@@ -379,6 +386,16 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 	else \
 		addr_hex=$$(awk '/^$(DUMP_SYMBOL)[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	fi; \
+	pre_commands=; \
+	if [ "$(TEST)" = "string_freelist_corrupt_counter_gate_off" ]; then \
+		debug_flag_hex=$$(awk '/^string_freelist_debug_enabled[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		freelist_head_hex=$$(awk '/^free_string_small_list[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
+		if [ -n "$$debug_flag_hex" ] && [ -n "$$freelist_head_hex" ]; then \
+			freelist_head_no_prefix=$${freelist_head_hex#0x}; \
+			freelist_head_hi_hex=$$(printf '0x%04X' $$((0x$$freelist_head_no_prefix + 1))); \
+			pre_commands=$$(printf 'rom[%s]=0\nrom[%s]=1\nrom[%s]=0\n' "$$debug_flag_hex" "$$freelist_head_hex" "$$freelist_head_hi_hex"); \
+		fi; \
+	fi; \
 	bss_start_hex=$$(awk '/^bss_start[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	bss_end_hex=$$(awk '/^bss_end[[:space:]]+EQU[[:space:]]+0x/ { print $$3; exit }' $(PROGRAM_SYM)); \
 	if [ -n "$(STEP_COUNT)" ]; then \
@@ -390,7 +407,7 @@ $(COMMANDS): $(PROGRAM_IHX) $(PROGRAM_SYM) FORCE
 	fi; \
 	addr_no_prefix=$${addr_hex#0x}; \
 	end_hex=$$(printf '0x%04X' $$((0x$$addr_no_prefix + $(DUMP_BYTES) - 1))); \
-	printf 'step %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$step_count" "$$addr_hex" "$$end_hex" > $@
+	printf '%sstep %s\ndump /h $(DUMP_SPACE) %s %s\nquit\n' "$$pre_commands" "$$step_count" "$$addr_hex" "$$end_hex" > $@
 
 $(ACTUAL): $(STUB_IHX) $(PROGRAM_IHX) $(COMMANDS) FORCE
 	if [ -n "$(DUMP_ADDR)" ]; then \
